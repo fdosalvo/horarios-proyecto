@@ -25,6 +25,7 @@ urlpatterns = [
     path('accounts/', include('allauth.urls')),
     path('reporte_alumnos_por_anio_curso/', views.reporte_alumnos_por_anio_curso, name='reporte_alumnos_por_anio_curso'),
     path('reporte_alumnos_por_anio_curso_data/', views.reporte_alumnos_por_anio_curso_data, name='reporte_alumnos_por_anio_curso_data'),
+    path('myapp/aplicar_descuento/', views.aplicar_descuento, name='aplicar_descuento'),
 ]
 
 

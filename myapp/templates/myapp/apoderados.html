@@ -122,6 +122,37 @@
     </div>
 </div>
 
+<!-- Modal para Aplicar Descuento -->
+<div class="modal fade" id="aplicarDescuentoModal" tabindex="-1" aria-labelledby="aplicarDescuentoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="aplicarDescuentoModalLabel">Aplicar Descuento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="aplicarDescuentoForm">
+                    {% csrf_token %}
+                    <input type="hidden" id="descuentoApoderadoId" name="apoderado_id">
+                    <div class="mb-3">
+                        <label for="descuentoDescripcion" class="form-label">Descripción del Descuento</label>
+                        <input type="text" class="form-control" id="descuentoDescripcion" name="descripcion" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descuentoPorcentaje" class="form-label">Porcentaje de Descuento (%)</label>
+                        <input type="number" step="0.01" class="form-control" id="descuentoPorcentaje" name="porcentaje" min="0" max="100" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="mesInicioDescuento" class="form-label">Aplicar desde el Mes Número</label>
+                        <input type="number" class="form-control" id="mesInicioDescuento" name="mes_inicio" min="1" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Aplicar Descuento</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // Configurar el token CSRF para todas las solicitudes AJAX
 function getCookie(name) {
@@ -173,7 +204,10 @@ $(document).ready(function() {
             {
                 "data": null,
                 "render": function(data, type, row) {
-                    return '<a href="/myapp/apoderados/' + row.apoderado_id + '/alumnos/" class="btn btn-sm btn-info">Gestionar Alumnos</a>';
+                    return `
+                        <a href="/myapp/apoderados/${row.apoderado_id}/alumnos/" class="btn btn-sm btn-info">Gestionar Alumnos</a>
+                        <button class="btn btn-sm btn-warning aplicar-descuento-btn" data-apoderado-id="${row.apoderado_id}">Descuento</button>
+                    `;
                 }
             }
         ],
@@ -220,8 +254,52 @@ $(document).ready(function() {
         });
     });
 
-    // Añadir clase de validación de Bootstrap al formulario
+    // Manejar clic en el botón "Descuento"
+    $('#apoderadosTable tbody').on('click', '.aplicar-descuento-btn', function() {
+        const apoderadoId = $(this).data('apoderado-id');
+        $('#descuentoApoderadoId').val(apoderadoId);
+        $('#aplicarDescuentoModal').modal('show');
+    });
+
+    // Manejar aplicación de descuento
+    $('#aplicarDescuentoForm').on('submit', function(e) {
+        e.preventDefault();
+        if (!this.checkValidity()) {
+            e.stopPropagation();
+            $(this).addClass('was-validated');
+            return;
+        }
+        $.ajax({
+            url: "{% url 'aplicar_descuento' %}",
+            type: "POST",
+            data: $(this).serialize(),
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    $('#aplicarDescuentoModal').modal('hide');
+                    table.ajax.reload();
+                    $('#aplicarDescuentoForm')[0].reset();
+                    alert('Descuento aplicado exitosamente.');
+                } else {
+                    alert('Error: ' + response.error);
+                    $('#aplicarDescuentoModal').modal('hide');
+                }
+            },
+            error: function(xhr) {
+                console.error('Error en la solicitud AJAX:', xhr);
+                alert('Error al aplicar el descuento: ' + (xhr.responseJSON ? xhr.responseJSON.error : 'Error desconocido'));
+                $('#aplicarDescuentoModal').modal('hide');
+            },
+            complete: function() {
+                $('body').removeClass('modal-open');
+                $('.modal-backdrop').remove();
+            }
+        });
+    });
+
+    // Añadir clase de validación de Bootstrap a los formularios
     $('#crearApoderadoForm').addClass('needs-validation');
+    $('#aplicarDescuentoForm').addClass('needs-validation');
 });
 
 function loadApoderados() {

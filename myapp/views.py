@@ -998,3 +998,52 @@ def reporte_alumnos_por_anio_curso_data(request):
         })
 
     return JsonResponse({'data': data})
+
+@login_required(login_url='/accounts/login/')
+@require_POST
+def aplicar_descuento(request):
+    try:
+        apoderado_id = request.POST.get('apoderado_id')
+        descripcion = request.POST.get('descripcion')
+        porcentaje = request.POST.get('porcentaje')
+        mes_inicio = int(request.POST.get('mes_inicio'))
+
+        if not all([apoderado_id, descripcion, porcentaje, mes_inicio]):
+            return JsonResponse({'success': False, 'error': 'Faltan campos obligatorios'}, status=400)
+
+        apoderado = Apoderado.objects.get(id=apoderado_id)
+        porcentaje = Decimal(porcentaje)
+
+        # Validar el mes de inicio
+        if mes_inicio < 1 or mes_inicio > apoderado.meses_pago:
+            return JsonResponse({'success': False, 'error': f'El mes de inicio debe estar entre 1 y {apoderado.meses_pago}'}, status=400)
+
+        # Crear el descuento
+        descuento = Descuento.objects.create(
+            apoderado=apoderado,
+            descripcion=descripcion,
+            porcentaje=porcentaje,
+            activo=True,
+            anio_escolar=apoderado.anio_escolar
+        )
+
+        # Actualizar las mensualidades a partir del mes especificado
+        mensualidades = Mensualidad.objects.filter(apoderado=apoderado, numero__gte=mes_inicio)
+        for mensualidad in mensualidades:
+            # Recalcular el monto con el nuevo descuento
+            descuentos = apoderado.descuentos.filter(activo=True)
+            total_descuento = sum(d.porcentaje for d in descuentos)
+            factor_descuento = Decimal('1') - (total_descuento / Decimal('100'))
+            monto_final = mensualidad.monto_inicial * factor_descuento
+            descuentos_aplicados = ", ".join(f"{d.descripcion} ({d.porcentaje}%)" for d in descuentos) or "Ninguno"
+            mensualidad.monto = monto_final
+            mensualidad.descuentos_aplicados = descuentos_aplicados
+            mensualidad.save()
+
+        return JsonResponse({'success': True})
+    except Apoderado.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Apoderado no encontrado'}, status=404)
+    except (ValueError, TypeError) as e:
+        return JsonResponse({'success': False, 'error': 'Datos inválidos: ' + str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
