@@ -1,0 +1,234 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #F8FAFC;
+    color: #1F2937;
+}
+
+.container-custom {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.card-custom {
+    background-color: #FFFFFF;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    padding: 2rem;
+    transition: transform 0.2s ease;
+}
+
+.card-custom:hover {
+    transform: translateY(-2px);
+}
+
+h2 {
+    color: #1F2937;
+    font-weight: 600;
+    font-size: 1.75rem;
+    margin-bottom: 1rem;
+    text-align: center;
+    border-bottom: 2px solid #E5E7EB;
+    padding-bottom: 0.5rem;
+}
+
+h3 {
+    color: #1F2937;
+    font-weight: 500;
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.form-label {
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: #1F2937;
+    margin-bottom: 0.4rem;
+}
+
+.form-select, .form-control {
+    border-radius: 8px;
+    border: 1px solid #D1D5DB;
+    padding: 0.65rem 1rem;
+    font-size: 0.95rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-select:focus, .form-control:focus {
+    border-color: #1E3A8A;
+    box-shadow: 0 0 0 0.2rem rgba(30, 58, 138, 0.2);
+    outline: none;
+}
+
+.btn-primary {
+    background-color: #1E3A8A;
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem 2rem;
+    font-weight: 500;
+    font-size: 1rem;
+    transition: background-color 0.2s, transform 0.2s;
+}
+
+.btn-primary:hover {
+    background-color: #1E40AF;
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background-color: #6B7280;
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1.5rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: background-color 0.2s;
+}
+
+.btn-secondary:hover {
+    background-color: #4B5563;
+}
+
+.alert {
+    border-radius: 8px;
+    padding: 0.75rem 1.25rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+    animation: fadeIn 0.3s ease-in;
+}
+
+.alert-warning {
+    background-color: #FEF3C7;
+    color: #92400E;
+    border: 1px solid #FDE68A;
+}
+
+.alert-danger {
+    background-color: #FEE2E2;
+    color: #991B1B;
+    border: 1px solid #FECACA;
+}
+
+.alert-success {
+    background-color: #D1FAE5;
+    color: #065F46;
+    border: 1px solid #6EE7B7;
+}
+
+.remaining-hours {
+    display: inline-block;
+    color: #4B5563;
+    font-size: 0.85rem;
+    font-weight: 500;
+    background-color: #E5E7EB;
+    padding: 0.4rem 1rem;
+    border-radius: 20px;
+    margin-bottom: 1.5rem;
+}
+
+.table-custom {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.table-custom th, .table-custom td {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+    border-bottom: 1px solid #E5E7EB;
+}
+
+.table-custom th {
+    background-color: #F9FAFB;
+    font-weight: 500;
+    color: #1F2937;
+    text-align: left;
+}
+
+.table-custom td {
+    background-color: #FFFFFF;
+    vertical-align: middle;
+}
+
+.table-custom tr:hover td {
+    background-color: #F1F5F9;
+}
+
+.table-custom .bg-danger {
+    background-color: #FEE2E2 !important;
+    color: #991B1B;
+}
+
+.table-custom .bg-warning {
+    background-color: #FEF3C7 !important;
+    color: #92400E;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 576px) {
+    .card-custom {
+        padding: 1.5rem;
+    }
+    .btn-primary, .btn-secondary {
+        width: 100%;
+        padding: 0.75rem;
+    }
+    h2 {
+        font-size: 1.5rem;
+    }
+    h3 {
+        font-size: 1.1rem;
+    }
+    .container-custom {
+        margin: 1rem auto;
+    }
+    .table-custom th, .table-custom td {
+        font-size: 0.85rem;
+        padding: 0.5rem;
+    }
+}
+
+/* Estilos del mockup para cargar_asignacion.html */
+body {
+    background: linear-gradient(to bottom right, #f1f8ff, #fff0f6);
+}
+
+.time-cell {
+    height: 30px;
+    border: 1px solid #dee2e6;
+    cursor: pointer;
+    transition: background 0.2s;
+    user-select: none;
+}
+
+.time-cell.selected {
+    background-color: #0d6efd;
+    color: #fff;
+    font-weight: bold;
+}
+
+.time-cell.blocked {
+    background-color: #adb5bd;
+    color: white;
+    cursor: not-allowed;
+}
+
+.label-cell {
+    font-weight: bold;
+    text-align: right;
+    padding-right: 8px;
+    white-space: nowrap;
+    width: 1%;
+}
+
+.selection-info {
+    font-weight: bold;
+    color: #0d6efd;
+    font-size: 1.1rem;
+}

@@ -1,0 +1,76 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}Horario de {{ professor.nombre }}{% endblock %}
+
+{% block content %}
+<div class="container-custom">
+    <div class="card-custom">
+        <h2>Horario de {{ professor.nombre }}</h2>
+        {% for day, data in schedule_data.items %}
+            <h3>{{ day }}</h3>
+            <!-- Checkbox para ocultar filas vacías -->
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="hideEmptyRows-{{ forloop.counter }}" onchange="toggleEmptyRows(this, '{{ forloop.counter }}')">
+                <label class="form-check-label" for="hideEmptyRows-{{ forloop.counter }}">
+                    Mostrar solo asignaciones y horas no disponibles
+                </label>
+            </div>
+            <table class="table-custom mb-4" id="scheduleTable-{{ forloop.counter }}">
+                <thead>
+                    <tr>
+                        <th scope="col">Horario</th>
+                        <th scope="col">Asignación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for slot_time, assignment, no_disponible in data.slots %}
+                        <tr class="{% if not assignment and not no_disponible %}empty-row{% endif %}">
+                            <td>{{ slot_time|time:"H:i" }}</td>
+                            <td class="{% if assignment %}bg-danger{% elif no_disponible %}bg-warning{% endif %}">
+                                {% if assignment %}
+                                    {% for start, end, description, duration in data.assigned %}
+                                        {% if slot_time|time:"H:i" >= start|time:"H:i" and slot_time|time:"H:i" < end|time:"H:i" %}
+                                            {{ description }} ({{ duration }} min)
+                                        {% endif %}
+                                    {% endfor %}
+                                {% elif no_disponible %}
+                                    No disponible
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if data.available %}
+                <h4>Horarios Disponibles</h4>
+                <ul>
+                    {% for start, end in data.available %}
+                        <li>{{ start|time:"H:i" }} - {{ end|time:"H:i" }}</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-muted">No hay horarios disponibles para este día.</p>
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Script para manejar el checkbox -->
+<script>
+    function toggleEmptyRows(checkbox, tableIndex) {
+        const table = document.getElementById(`scheduleTable-${tableIndex}`);
+        const emptyRows = table.querySelectorAll('.empty-row');
+        emptyRows.forEach(row => {
+            row.style.display = checkbox.checked ? 'none' : '';
+        });
+    }
+
+    // Inicializar: ocultar filas vacías si el checkbox está marcado al cargar la página
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('[id^="hideEmptyRows-"]').forEach(checkbox => {
+            const tableIndex = checkbox.id.split('-')[1];
+            toggleEmptyRows(checkbox, tableIndex);
+        });
+    });
+</script>
+{% endblock %}

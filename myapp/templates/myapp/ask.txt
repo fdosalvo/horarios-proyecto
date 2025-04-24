@@ -1,0 +1,8 @@
+Titulo:drag and drop de horas.
+
+Imagina una tabla horizontal de dos filas.
+La primera fila corresponde a encabezado donde se representan las horas en celdas de 15 minutos. El rango horarios es de 08:00 a 23:00.
+La segunda fila corresponde a las horas que se pueden reservar. Cada hora está representada por un rectángulo de 15 minutos.
+La segunda fila tendra un drag and drop, por ejemplo iniciar a las 08:00 y marcar hasta las 09:30. Luego tambien podria marcar bloques desde las 12:00 a las 12:30.
+Que tenga un boton "listo" que diga la cantidad de minutos asignados. Esto con un aspecto bootstrap
+Puedes darme un html que realice esta funcionalidad. LA iremos perfeccionando en conjunto en la medida que la vaya testeando.

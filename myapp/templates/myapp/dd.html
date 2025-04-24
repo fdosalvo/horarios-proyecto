@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Asignación de Horarios</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+  <style>
+    body {
+      background: linear-gradient(to bottom right, #f1f8ff, #fff0f6);
+    }
+    .time-cell {
+      height: 30px;
+      border: 1px solid #dee2e6;
+      cursor: pointer;
+      transition: background 0.2s;
+      user-select: none;
+    }
+    .time-cell.selected {
+      background-color: #0d6efd;
+      color: #fff;
+      font-weight: bold;
+    }
+    .time-cell.blocked {
+      background-color: #adb5bd;
+      color: white;
+      cursor: not-allowed;
+    }
+    .label-cell {
+      font-weight: bold;
+      text-align: right;
+      padding-right: 8px;
+      white-space: nowrap;
+      width: 1%;
+    }
+    .selection-info {
+      font-weight: bold;
+      color: #0d6efd;
+      font-size: 1.1rem;
+    }
+    .table-scroll {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body class="p-4">
+
+<div class="container-fluid">
+  <div class="row">
+    <!-- Horario -->
+    <div class="col-md-6">
+      <h4 class="text-center">Horario del Día</h4>
+      <table class="table table-bordered w-100">
+        <tbody id="horario-tabla"></tbody>
+      </table>
+
+      <p class="text-center mt-3 selection-info">
+        Minutos seleccionados: <span id="resultado">0</span><br>
+        Selección actual: <span id="seleccion-actual">Ninguna</span>
+      </p>
+    </div>
+
+    <!-- DataTables -->
+    <div class="col-md-6">
+      <div class="row g-3">
+        <div class="col-12">
+          <h5>Profesor</h5>
+          <table id="tabla-profesor" class="table table-striped table-bordered w-100">
+            <thead><tr><th>Nombre</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="col-12">
+          <h5>Materia</h5>
+          <table id="tabla-materia" class="table table-striped table-bordered w-100">
+            <thead><tr><th>Materia</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="col-12">
+          <h5>Curso</h5>
+          <table id="tabla-curso" class="table table-striped table-bordered w-100">
+            <thead><tr><th>Curso</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="col-12">
+          <h5>Día</h5>
+          <table id="tabla-dia" class="table table-striped table-bordered w-100">
+            <thead><tr><th>Día</th></tr></thead>
+            <tbody>
+              <tr><td>Lunes</td></tr>
+              <tr><td>Martes</td></tr>
+              <tr><td>Miércoles</td></tr>
+              <tr><td>Jueves</td></tr>
+              <tr><td>Viernes</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<script>
+  const startHour = 8;
+  const endHour = 23;
+  const blockedTimes = ["13:00", "13:15", "13:30", "13:45"];
+  const horarioTabla = document.getElementById("horario-tabla");
+
+  for (let i = 0; i < (endHour - startHour + 1) * 4; i++) {
+    const row = document.createElement("tr");
+    const hour = startHour + Math.floor(i / 4);
+    const minutes = (i % 4) * 15;
+    const timeLabel = `${hour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+
+    const labelCell = document.createElement("td");
+    labelCell.className = "label-cell";
+    labelCell.innerText = timeLabel;
+
+    const cell = document.createElement("td");
+    cell.className = "time-cell";
+    cell.dataset.time = timeLabel;
+
+    if (blockedTimes.includes(timeLabel)) {
+      cell.classList.add("blocked");
+    }
+
+    row.appendChild(labelCell);
+    row.appendChild(cell);
+    horarioTabla.appendChild(row);
+  }
+
+  // Drag-select
+  let isMouseDown = false;
+  horarioTabla.addEventListener("mousedown", e => {
+    if (e.target.classList.contains("time-cell") && !e.target.classList.contains("blocked")) {
+      isMouseDown = true;
+      e.target.classList.toggle("selected");
+      actualizarMinutos();
+    }
+  });
+  horarioTabla.addEventListener("mouseover", e => {
+    if (isMouseDown && e.target.classList.contains("time-cell") && !e.target.classList.contains("blocked")) {
+      e.target.classList.add("selected");
+      actualizarMinutos();
+    }
+  });
+  document.addEventListener("mouseup", () => isMouseDown = false);
+
+  function actualizarMinutos() {
+    const seleccionados = document.querySelectorAll(".time-cell.selected");
+    const minutos = seleccionados.length * 15;
+    document.getElementById("resultado").innerText = minutos;
+  }
+
+  // DataTables
+  function crearTabla(selector, datos) {
+    const tbody = document.querySelector(`${selector} tbody`);
+    datos.forEach(item => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${item}</td>`;
+      tr.addEventListener("click", () => {
+        document.querySelectorAll(`${selector} tr`).forEach(row => row.classList.remove("table-primary"));
+        tr.classList.add("table-primary");
+        actualizarSeleccion();
+      });
+      tbody.appendChild(tr);
+    });
+    new DataTable(selector, {
+      paging: true,
+      pageLength: 6,
+      lengthChange: false,
+      searching: true,
+      info: false
+    });
+  }
+
+  crearTabla("#tabla-profesor", Array.from({ length: 15 }, (_, i) => `Profe${i + 1}`));
+  crearTabla("#tabla-materia", Array.from({ length: 15 }, (_, i) => `Materia${i + 1}`));
+  crearTabla("#tabla-curso", Array.from({ length: 15 }, (_, i) => `Curso${i + 1}`));
+
+  // Tabla días de semana
+  document.querySelectorAll("#tabla-dia tbody tr").forEach(tr => {
+    tr.addEventListener("click", () => {
+      document.querySelectorAll("#tabla-dia tr").forEach(row => row.classList.remove("table-primary"));
+      tr.classList.add("table-primary");
+      actualizarSeleccion();
+    });
+  });
+
+  function obtenerSeleccion(tabla) {
+    const seleccionado = document.querySelector(`${tabla} .table-primary td`);
+    return seleccionado ? seleccionado.innerText : null;
+  }
+
+  function actualizarSeleccion() {
+    const profe = obtenerSeleccion("#tabla-profesor");
+    const materia = obtenerSeleccion("#tabla-materia");
+    const curso = obtenerSeleccion("#tabla-curso");
+    const dia = obtenerSeleccion("#tabla-dia");
+    const resumen = [profe, materia, curso, dia].filter(Boolean).join(" | ");
+    document.getElementById("seleccion-actual").innerText = resumen || "Ninguna";
+  }
+</script>
+
+</body>
+</html>
+
+
+

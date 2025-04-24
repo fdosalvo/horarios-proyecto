@@ -1,0 +1,416 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}Ingresar Asignación{% endblock %}
+
+{% block extra_head %}
+    <!-- Incluir DataTables CSS -->
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <!-- Incluir SweetAlert2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <!-- Incluir jQuery y DataTables JS -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <!-- Incluir SweetAlert2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+    <style>
+        .blocked {
+            background-color: #f0f0f0;
+            cursor: not-allowed;
+        }
+        .selected {
+            background-color: #a0d0ff;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Mostrar mensajes de error o éxito -->
+    {% if error_message %}
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ error_message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endif %}
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Alerta para mostrar las horas disponibles -->
+    <div id="remaining-hours-alert" class="alert alert-info" style="display: none;">
+        El profesor tiene <span id="remaining-hours-value"></span> horas disponibles para este día.
+    </div>
+
+    <div class="row">
+        <!-- Horario -->
+        <div class="col-md-6">
+            <h4 class="text-center">Horario del Día</h4>
+            <table class="table table-bordered w-100">
+                <tbody id="horario-tabla"></tbody>
+            </table>
+
+            <p class="text-center mt-3 selection-info">
+                Minutos seleccionados: <span id="resultado">0</span><br>
+                Selección actual: <span id="seleccion-actual">Ninguna</span>
+            </p>
+
+            <!-- Botón para guardar la asignación -->
+            <div class="text-center">
+                <button type="button" class="btn btn-primary" id="guardar-asignacion">Guardar Asignación</button>
+            </div>
+        </div>
+
+        <!-- DataTables -->
+        <div class="col-md-6">
+            <div class="row g-3">
+                <div class="col-12">
+                    <h5>Profesor</h5>
+                    <table id="tabla-profesor" class="table table-striped table-bordered w-100">
+                        <thead><tr><th>Nombre</th></tr></thead>
+                        <tbody>
+                            {% for professor in all_professors %}
+                                <tr data-id="{{ professor.id }}"><td>{{ professor.nombre }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="col-12">
+                    <h5>Materia</h5>
+                    <table id="tabla-materia" class="table table-striped table-bordered w-100">
+                        <thead><tr><th>Materia</th></tr></thead>
+                        <tbody>
+                            {% for materia in materias %}
+                                <tr data-id="{{ materia.id }}"><td>{{ materia.nombre }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="col-12">
+                    <h5>Curso</h5>
+                    <table id="tabla-curso" class="table table-striped table-bordered w-100">
+                        <thead><tr><th>Curso</th></tr></thead>
+                        <tbody>
+                            {% for curso in all_cursos %}
+                                <tr data-id="{{ curso.id }}"><td>{{ curso.nombre }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="col-12">
+                    <h5>Día</h5>
+                    <table id="tabla-dia" class="table table-striped table-bordered w-100">
+                        <thead><tr><th>Día</th></tr></thead>
+                        <tbody>
+                            {% for dia in dias %}
+                                <tr data-id="{{ dia.id }}"><td>{{ dia.nombre }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Formulario oculto para enviar los datos -->
+<form id="asignacion-form" method="POST" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="profesor" id="form-profesor">
+    <input type="hidden" name="materia" id="form-materia">
+    <input type="hidden" name="curso" id="form-curso">
+    <input type="hidden" name="dia" id="form-dia">
+    <input type="hidden" name="hora_inicio" id="form-hora-inicio">
+    <input type="hidden" name="hora_fin" id="form-hora-fin">
+    <input type="hidden" name="selected_slots" id="form-selected-slots">
+</form>
+
+<!-- Script para manejar la lógica del horario y las tablas -->
+<script>
+    const horarioTabla = document.getElementById("horario-tabla");
+    let blockedTimes = [];
+    let noDisponibleSlots = [];
+    let assignedSlots = [];
+    let availableSlots = [];
+    let remainingHoras = null;
+
+    // Generar todos los slots de 08:00 a 23:00
+    function generateTimeSlots() {
+        const slots = [];
+        let currentHour = 8;
+        let currentMinute = 0;
+
+        while (currentHour < 23 || (currentHour === 23 && currentMinute === 0)) {
+            const timeStr = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
+            slots.push(timeStr);
+
+            currentMinute += 15;
+            if (currentMinute >= 60) {
+                currentMinute = 0;
+                currentHour += 1;
+            }
+        }
+        return slots;
+    }
+
+    const allTimeSlots = generateTimeSlots();
+
+    // Mostrar la alerta de horas disponibles cuando se seleccione un día
+    function updateRemainingHoursAlert() {
+        const diaSelected = document.querySelector("#tabla-dia .table-primary");
+        if (diaSelected && remainingHoras !== null) {
+            document.getElementById("remaining-hours-value").innerText = remainingHoras;
+            document.getElementById("remaining-hours-alert").style.display = 'block';
+        } else {
+            document.getElementById("remaining-hours-alert").style.display = 'none';
+        }
+    }
+
+    // Generar las celdas de tiempo para todos los slots de 08:00 a 23:00
+    function renderHorarioTabla() {
+        horarioTabla.innerHTML = ''; // Limpiar la tabla antes de renderizar
+        allTimeSlots.forEach(timeLabel => {
+            const row = document.createElement("tr");
+            const labelCell = document.createElement("td");
+            labelCell.className = "label-cell";
+            labelCell.innerText = timeLabel;
+
+            const cell = document.createElement("td");
+            cell.className = "time-cell";
+            cell.dataset.time = timeLabel;
+
+            // Verificar si el slot tiene una asignación existente
+            const assignedSlot = assignedSlots.find(slot => slot.time === timeLabel);
+            if (assignedSlot) {
+                cell.classList.add("blocked");
+                cell.innerText = assignedSlot.description;
+            }
+            // Verificar si el slot está en un rango no disponible
+            else if (noDisponibleSlots.includes(timeLabel)) {
+                cell.classList.add("blocked");
+                cell.innerText = "Rango no disponible";
+            }
+            // Verificar si el slot está bloqueado por otras asignaciones del curso
+            else if (blockedTimes.includes(timeLabel)) {
+                cell.classList.add("blocked");
+                cell.innerText = "No disponible";
+            }
+
+            row.appendChild(labelCell);
+            row.appendChild(cell);
+            horarioTabla.appendChild(row);
+        });
+    }
+
+    // Función para obtener los datos del horario mediante AJAX
+    function fetchScheduleData() {
+        const profe = obtenerSeleccion("#tabla-profesor");
+        const curso = obtenerSeleccion("#tabla-curso");
+        const dia = obtenerSeleccion("#tabla-dia");
+
+        if (profe && curso && dia) {
+            $.ajax({
+                url: "{% url 'get_schedule_data' %}",
+                method: "GET",
+                data: {
+                    profesor_id: profe.id,
+                    curso_id: curso.id,
+                    dia_id: dia.id,
+                },
+                success: function(data) {
+                    blockedTimes = data.blocked_times || [];
+                    noDisponibleSlots = data.no_disponible_slots || [];
+                    assignedSlots = data.assigned_slots || [];
+                    availableSlots = data.available_slots || [];
+                    remainingHoras = data.remaining_horas;
+                    if (data.error_message) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: data.error_message,
+                        });
+                    }
+                    renderHorarioTabla();
+                    updateRemainingHoursAlert();
+                },
+                error: function() {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Error al obtener los datos del horario.',
+                    });
+                }
+            });
+        } else {
+            // Si no están todos los campos seleccionados, limpiar la tabla
+            blockedTimes = [];
+            noDisponibleSlots = [];
+            assignedSlots = [];
+            availableSlots = [];
+            remainingHoras = null;
+            renderHorarioTabla();
+            updateRemainingHoursAlert();
+        }
+    }
+
+    // Renderizar la tabla al cargar la página
+    renderHorarioTabla();
+
+    // Drag-select
+    let isMouseDown = false;
+    let selectedTimes = [];
+    horarioTabla.addEventListener("mousedown", e => {
+        if (e.target.classList.contains("time-cell") && !e.target.classList.contains("blocked")) {
+            isMouseDown = true;
+            const time = e.target.dataset.time;
+            const index = selectedTimes.indexOf(time);
+            if (index === -1) {
+                selectedTimes.push(time);
+                e.target.classList.add("selected");
+            } else {
+                selectedTimes.splice(index, 1);
+                e.target.classList.remove("selected");
+            }
+            actualizarMinutos();
+        }
+    });
+    horarioTabla.addEventListener("mouseover", e => {
+        if (isMouseDown && e.target.classList.contains("time-cell") && !e.target.classList.contains("blocked")) {
+            const time = e.target.dataset.time;
+            if (!selectedTimes.includes(time)) {
+                selectedTimes.push(time);
+                e.target.classList.add("selected");
+            }
+            actualizarMinutos();
+        }
+    });
+    document.addEventListener("mouseup", () => {
+        isMouseDown = false;
+        // No se valida la continuidad, se permite cualquier selección
+        actualizarMinutos();
+    });
+
+    function actualizarMinutos() {
+        const minutos = selectedTimes.length * 15;
+        document.getElementById("resultado").innerText = minutos;
+        // Actualizar hora_inicio y hora_fin en el formulario (rango envolvente)
+        if (selectedTimes.length > 0) {
+            selectedTimes.sort();
+            const firstTime = selectedTimes[0];
+            const lastTime = selectedTimes[selectedTimes.length - 1].split(':').map(Number);
+            const endMinutes = lastTime[0] * 60 + lastTime[1] + 15;
+            const endHour = Math.floor(endMinutes / 60);
+            const endMinute = endMinutes % 60;
+            const horaFin = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+            document.getElementById("form-hora-inicio").value = firstTime;
+            document.getElementById("form-hora-fin").value = horaFin;
+            // Guardar los slots seleccionados específicos
+            document.getElementById("form-selected-slots").value = JSON.stringify(selectedTimes);
+        } else {
+            document.getElementById("form-hora-inicio").value = "";
+            document.getElementById("form-hora-fin").value = "";
+            document.getElementById("form-selected-slots").value = "";
+        }
+    }
+
+    // DataTables
+    function crearTabla(selector) {
+        $(selector).DataTable({
+            paging: true,
+            pageLength: 6,
+            lengthChange: false,
+            searching: true,
+            info: false,
+            language: {
+                search: "Buscar:",
+                paginate: {
+                    first: "Primero",
+                    last: "Último",
+                    next: "Siguiente",
+                    previous: "Anterior"
+                },
+                emptyTable: "No hay datos disponibles"
+            }
+        });
+
+        $(selector + ' tbody').on('click', 'tr', function() {
+            $(selector + ' tr').removeClass('table-primary');
+            $(this).addClass('table-primary');
+            actualizarSeleccion();
+            fetchScheduleData(); // Actualizar la tabla de horarios al cambiar la selección
+        });
+    }
+
+    crearTabla("#tabla-profesor");
+    crearTabla("#tabla-materia");
+    crearTabla("#tabla-curso");
+    crearTabla("#tabla-dia");
+
+    function obtenerSeleccion(tabla) {
+        const seleccionado = $(tabla + ' .table-primary');
+        if (seleccionado.length) {
+            const id = seleccionado.data('id');
+            const texto = seleccionado.find('td').text();
+            return { id: id, texto: texto };
+        }
+        return null;
+    }
+
+    function actualizarSeleccion() {
+        const profe = obtenerSeleccion("#tabla-profesor");
+        const materia = obtenerSeleccion("#tabla-materia");
+        const curso = obtenerSeleccion("#tabla-curso");
+        const dia = obtenerSeleccion("#tabla-dia");
+        const resumen = [profe?.texto, materia?.texto, curso?.texto, dia?.texto].filter(Boolean).join(" | ");
+        document.getElementById("seleccion-actual").innerText = resumen || "Ninguna";
+
+        // Actualizar el formulario oculto
+        document.getElementById("form-profesor").value = profe?.id || "";
+        document.getElementById("form-materia").value = materia?.id || "";
+        document.getElementById("form-curso").value = curso?.id || "";
+        document.getElementById("form-dia").value = dia?.id || "";
+    }
+
+    // Guardar asignación
+    document.getElementById("guardar-asignacion").addEventListener("click", function() {
+        const form = document.getElementById("asignacion-form");
+        const profesor = document.getElementById("form-profesor").value;
+        const materia = document.getElementById("form-materia").value;
+        const curso = document.getElementById("form-curso").value;
+        const dia = document.getElementById("form-dia").value;
+        const horaInicio = document.getElementById("form-hora-inicio").value;
+        const horaFin = document.getElementById("form-hora-fin").value;
+
+        if (!profesor || !materia || !curso || !dia || !horaInicio || !horaFin) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campos Incompletos',
+                text: 'Por favor completa todos los campos y selecciona un rango de horas.',
+            });
+            return;
+        }
+
+        // Confirmar antes de guardar
+        Swal.fire({
+            icon: 'question',
+            title: 'Confirmar Asignación',
+            text: `¿Deseas guardar la asignación para ${obtenerSeleccion("#tabla-profesor").texto} (${obtenerSeleccion("#tabla-materia").texto}) en ${obtenerSeleccion("#tabla-curso").texto} el día ${obtenerSeleccion("#tabla-dia").texto}?`,
+            showCancelButton: true,
+            confirmButtonText: 'Sí, guardar',
+            cancelButtonText: 'Cancelar',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                form.submit();
+            }
+        });
+    });
+</script>
+{% endblock %}

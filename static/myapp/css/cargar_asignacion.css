@@ -1,0 +1,116 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #F1F3F5;
+    color: #212529;
+}
+
+.container-custom {
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.card-custom {
+    background-color: #FFFFFF;
+    border-radius: 16px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1);
+    padding: 2.5rem;
+    transition: transform 0.3s ease;
+}
+
+.card-custom:hover {
+    transform: translateY(-4px);
+}
+
+h2 {
+    color: #212529;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+}
+
+.form-label {
+    font-weight: 500;
+    color: #212529;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.form-select, .form-control {
+    border-radius: 10px;
+    border: 1px solid #DEE2E6;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-select:focus, .form-control:focus {
+    border-color: #20C997;
+    box-shadow: 0 0 0 0.2rem rgba(32, 201, 151, 0.25);
+    outline: none;
+}
+
+.btn-primary {
+    background-color: #20C997;
+    border: none;
+    border-radius: 10px;
+    padding: 0.75rem 2rem;
+    font-weight: 500;
+    font-size: 1rem;
+    transition: background-color 0.2s, transform 0.2s;
+}
+
+.btn-primary:hover {
+    background-color: #1BAA80;
+    transform: translateY(-2px);
+}
+
+.alert {
+    border-radius: 10px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+    animation: fadeIn 0.4s ease-in;
+}
+
+.alert-warning {
+    background-color: #FFF4E5;
+    color: #8A5100;
+    border: 1px solid #FFE8CC;
+}
+
+.alert-danger {
+    background-color: #FFE5E7;
+    color: #9B2C2C;
+    border: 1px solid #FFD6D8;
+}
+
+.remaining-hours {
+    color: #6C757D;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 2rem;
+    text-align: center;
+    background-color: #E9ECEF;
+    padding: 0.5rem;
+    border-radius: 8px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 576px) {
+    .card-custom {
+        padding: 1.5rem;
+    }
+    .btn-primary {
+        width: 100%;
+        padding: 0.75rem;
+    }
+    .container-custom {
+        margin: 1rem auto;
+    }
+}

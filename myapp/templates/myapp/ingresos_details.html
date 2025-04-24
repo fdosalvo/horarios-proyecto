@@ -1,0 +1,112 @@
+<div class="details-container p-3">
+    <h5>Alumnos de {{ apoderado }}</h5>
+    {% if alumnos %}
+    <table class="table table-bordered table-sm">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Apellido</th>
+                <th>Email</th>
+                <th>Fecha de Nacimiento</th>
+                <th>Sexo</th>
+                <th>Apoderado</th>
+                <th>Curso</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for alumno in alumnos %}
+            <tr>
+                <td>{{ alumno.nombre }}</td>
+                <td>{{ alumno.apellido }}</td>
+                <td>{{ alumno.email }}</td>
+                <td>{{ alumno.fecha_nacimiento }}</td>
+                <td>{{ alumno.get_sexo_display }}</td>
+                <td>{{ alumno.apoderado }}</td>
+                <td>{{ alumno.curso }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No hay alumnos asociados.</p>
+    {% endif %}
+
+    <!-- Gráfico de pastel -->
+    <h5 class="mt-4">Distribución de Mensualidades de {{ apoderado }}</h5>
+    <div class="row">
+        <div class="col-md-6">
+            <canvas id="pieChart-{{ apoderado.id }}" style="max-height: 300px;"></canvas>
+        </div>
+    </div>
+
+    <h5 class="mt-4">Mensualidades de {{ apoderado }}</h5>
+    {% if mensualidades %}
+    <table class="table table-bordered table-sm" id="mensualidadesTable-{{ apoderado.id }}">
+        <thead>
+            <tr>
+                <th>Número</th>
+                <th>Monto Inicial</th>
+                <th>Monto Final</th>
+                <th>Descuento en Pesos</th>
+                <th>Descuentos Aplicados</th>
+                <th>Fecha de Vencimiento</th>
+                <th>Fecha de Pago</th>
+                <th>Estado</th>
+                <th>Método de Pago</th>
+                <th>Comprobante</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for mensualidad in mensualidades %}
+            <tr data-id="{{ mensualidad.id }}">
+                <td>{{ mensualidad.numero }}</td>
+                <td>{{ mensualidad.monto_inicial }}</td>
+                <td>{{ mensualidad.monto }}</td>
+                <td>{{ mensualidad.descuento_pesos }}</td>
+                <td>{{ mensualidad.descuentos_aplicados }}</td>
+                <td>{{ mensualidad.fecha_vencimiento }}</td>
+                <td class="fecha-pago">{{ mensualidad.fecha_pago|default:"-" }}</td>
+                <td class="estado">{{ mensualidad.get_estado_display }}</td>
+                <td class="metodo-pago">{{ mensualidad.get_metodo_pago_display|default:"-" }}</td>
+                <td>
+                    {% if mensualidad.comprobante %}
+                    <a href="{{ mensualidad.comprobante.url }}" target="_blank">Ver</a>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td>
+                    {% if mensualidad.estado == 'pendiente' %}
+                    <form class="marcar-pagada-form" data-id="{{ mensualidad.id }}">
+                        <div class="input-group input-group-sm">
+                            <select name="metodo_pago" class="form-select" required>
+                                <option value="" disabled selected>Seleccione método</option>
+                                <option value="transferencia">Transferencia Bancaria</option>
+                                <option value="tarjeta">Tarjeta de Crédito/Débito</option>
+                                <option value="efectivo">Efectivo</option>
+                            </select>
+                            <button type="submit" class="btn btn-success btn-sm">Marcar Pagada</button>
+                        </div>
+                    </form>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="11">
+                    <strong>Monto Total Pendiente:</strong> <span id="total-pendiente">{{ total_pendiente|floatformat:2 }}</span><br>
+                    <strong>Monto Total Atrasado:</strong> <span id="total-atrasado">{{ total_atrasado|floatformat:2 }}</span><br>
+                    <strong>Monto Total de Cancelados:</strong> <span id="total-cancelado">{{ total_cancelado|floatformat:2 }}</span>
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+    {% else %}
+    <p>No hay mensualidades asociadas.</p>
+    {% endif %}
+</div>

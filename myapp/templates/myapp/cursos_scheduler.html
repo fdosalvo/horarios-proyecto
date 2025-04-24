@@ -1,0 +1,65 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}Horario de {{ curso.nombre }}{% endblock %}
+
+{% block content %}
+<div class="container-custom">
+    <div class="card-custom">
+        <h2>Horario de {{ curso.nombre }}</h2>
+        <div class="text-center mb-4">
+            <a href="{% url 'generate_curso_pdf' curso.id %}" class="btn btn-secondary">Descargar PDF</a>
+        </div>
+        {% for day, data in schedule_data.items %}
+            <h3>{{ day }}</h3>
+            <!-- Checkbox para ocultar filas vacías -->
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="hideEmptyRows-{{ forloop.counter }}" onchange="toggleEmptyRows(this, '{{ forloop.counter }}')">
+                <label class="form-check-label" for="hideEmptyRows-{{ forloop.counter }}">
+                    Mostrar solo asignaciones y horas no disponibles
+                </label>
+            </div>
+            <table class="table-custom mb-4" id="scheduleTable-{{ forloop.counter }}">
+                <thead>
+                    <tr>
+                        <th scope="col">Horario</th>
+                        <th scope="col">Profesor/Materia</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for slot_time, prof_materia, no_disponible in data.slots %}
+                        <tr class="{% if not prof_materia and not no_disponible %}empty-row{% endif %}">
+                            <td>{{ slot_time|time:"H:i" }}</td>
+                            <td class="{% if no_disponible %}bg-warning{% endif %}">
+                                {% if prof_materia %}
+                                    {{ prof_materia }}
+                                {% elif no_disponible %}
+                                    No disponible
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Script para manejar el checkbox -->
+<script>
+    function toggleEmptyRows(checkbox, tableIndex) {
+        const table = document.getElementById(`scheduleTable-${tableIndex}`);
+        const emptyRows = table.querySelectorAll('.empty-row');
+        emptyRows.forEach(row => {
+            row.style.display = checkbox.checked ? 'none' : '';
+        });
+    }
+
+    // Inicializar: ocultar filas vacías si el checkbox está marcado al cargar la página
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('[id^="hideEmptyRows-"]').forEach(checkbox => {
+            const tableIndex = checkbox.id.split('-')[1];
+            toggleEmptyRows(checkbox, tableIndex);
+        });
+    });
+</script>
+{% endblock %}

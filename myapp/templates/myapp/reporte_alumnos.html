@@ -1,0 +1,127 @@
+{% extends "myapp/base.html" %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Reporte de Alumnos por Año Escolar y Curso</h2>
+    <a href="{% url 'apoderados' %}" class="btn btn-secondary mb-3">Volver a Apoderados</a>
+    <div id="reporteAlumnos" class="accordion">
+        <!-- Los acordeones se generarán dinámicamente con JavaScript -->
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Cargar los datos al iniciar la página
+    $.ajax({
+        url: "{% url 'reporte_alumnos_por_anio_curso_data' %}",
+        dataType: 'json',
+        success: function(response) {
+            const $accordion = $('#reporteAlumnos');
+            $accordion.empty(); // Limpiar el contenedor
+
+            // Iterar sobre los años escolares
+            response.data.forEach((anioData, index) => {
+                const anioId = `anio-${index}`;
+                const anioHtml = `
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="heading-${anioId}">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-${anioId}" aria-expanded="true" aria-controls="collapse-${anioId}">
+                                Año Escolar: ${anioData.anio}
+                            </button>
+                        </h2>
+                        <div id="collapse-${anioId}" class="accordion-collapse collapse ${index === 0 ? 'show' : ''}" aria-labelledby="heading-${anioId}" data-bs-parent="#reporteAlumnos">
+                            <div class="accordion-body">
+                                ${generateCursosHtml(anioData.cursos, anioId)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                $accordion.append(anioHtml);
+            });
+        },
+        error: function(xhr) {
+            console.error('Error al cargar el reporte:', xhr);
+            alert('Error al cargar el reporte: ' + (xhr.responseJSON ? xhr.responseJSON.error : 'Error desconocido'));
+        }
+    });
+
+    // Generar HTML para los cursos dentro de cada año escolar
+    function generateCursosHtml(cursos, anioId) {
+        if (!cursos || cursos.length === 0) {
+            return '<p>No hay cursos registrados para este año escolar.</p>';
+        }
+
+        let html = '';
+        cursos.forEach((curso, index) => {
+            const cursoId = `${anioId}-curso-${index}`;
+            const cursoHtml = `
+                <div class="mb-3">
+                    <h4>Curso: ${curso.curso_nombre}</h4>
+                    ${generateAlumnosTable(curso.alumnos, cursoId)}
+                </div>
+            `;
+            html += cursoHtml;
+        });
+        return html;
+    }
+
+    // Generar tabla de alumnos para cada curso
+    function generateAlumnosTable(alumnos, cursoId) {
+        if (!alumnos || alumnos.length === 0) {
+            return '<p>No hay alumnos registrados en este curso.</p>';
+        }
+
+        let tableHtml = `
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Nombre Alumno</th>
+                        <th>Apellido Paterno</th>
+                        <th>Apellido Materno</th>
+                        <th>Email Alumno</th>
+                        <th>Fecha de Nacimiento</th>
+                        <th>Sexo</th>
+                        <th>Nombre Apoderado</th>
+                        <th>Apellido Paterno</th>
+                        <th>Apellido Materno</th>
+                        <th>Email Apoderado</th>
+                        <th>Teléfono Apoderado</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        alumnos.forEach(alumno => {
+            tableHtml += `
+                <tr>
+                    <td>${alumno.nombre_alumno}</td>
+                    <td>${alumno.apellidop_alumno}</td>
+                    <td>${alumno.apellidom_alumno}</td>
+                    <td>${alumno.email_alumno}</td>
+                    <td>${alumno.fecha_nacimiento}</td>
+                    <td>${alumno.sexo}</td>
+                    <td>${alumno.nombre_apoderado}</td>
+                    <td>${alumno.apellidop_apoderado}</td>
+                    <td>${alumno.apellidom_apoderado}</td>
+                    <td>${alumno.email_apoderado}</td>
+                    <td>${alumno.telefono_apoderado}</td>
+                </tr>
+            `;
+        });
+
+        tableHtml += `
+                </tbody>
+            </table>
+        `;
+        return tableHtml;
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,231 @@
+{% extends "myapp/base.html" %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Mantenedor de Apoderados</h2>
+    <div class="mb-3">
+        <a href="{% url 'reporte_alumnos_por_anio_curso' %}" class="btn btn-info">Ver Reporte de Alumnos por Año y Curso</a>
+    </div>
+    <div class="mb-3">
+        <label for="anioEscolarSelect" class="form-label">Seleccionar Año Escolar:</label>
+        <select id="anioEscolarSelect" class="form-select" onchange="loadApoderados()">
+            <option value="">-- Seleccionar Año --</option>
+            {% for anio in anios_escolares %}
+                <option value="{{ anio.id }}">{{ anio.anio }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#crearApoderadoModal">Crear Apoderado</button>
+    <table id="apoderadosTable" class="table table-striped">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Apellido Paterno</th>
+                <th>Apellido Materno</th>
+                <th>Email</th>
+                <th>Teléfono</th>
+                <th>RUT</th>
+                <th>Arancel Anual</th>
+                <th>Meses de Pago</th>
+                <th>Cantidad Alumnos</th>
+                <th>Modalidad de Pago</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<!-- Modal para Crear Apoderado -->
+<div class="modal fade" id="crearApoderadoModal" tabindex="-1" aria-labelledby="crearApoderadoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="crearApoderadoModalLabel">Crear Apoderado</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="crearApoderadoForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="nombre" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="apellidop" class="form-label">Apellido Paterno</label>
+                        <input type="text" class="form-control" id="apellidop" name="apellidop" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="apellidom" class="form-label">Apellido Materno</label>
+                        <input type="text" class="form-control" id="apellidom" name="apellidom" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="telefono" class="form-label">Teléfono</label>
+                        <input type="text" class="form-control" id="telefono" name="telefono">
+                    </div>
+                    <div class="mb-3">
+                        <label for="rut" class="form-label">RUT</label>
+                        <input type="text" class="form-control" id="rut" name="rut" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="arancel_anual" class="form-label">Arancel Anual</label>
+                        <input type="number" step="0.01" class="form-control" id="arancel_anual" name="arancel_anual" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="meses_pago" class="form-label">Meses de Pago</label>
+                        <input type="number" class="form-control" id="meses_pago" name="meses_pago" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="cantidad_alumnos" class="form-label">Cantidad de Alumnos</label>
+                        <input type="number" class="form-control" id="cantidad_alumnos" name="cantidad_alumnos" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="fecha_inicio" class="form-label">Fecha de Inicio</label>
+                        <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio">
+                    </div>
+                    <div class="mb-3">
+                        <label for="anio_escolar" class="form-label">Año Escolar</label>
+                        <select class="form-select" id="anio_escolar" name="anio_escolar" required>
+                            <option value="">-- Seleccionar Año --</option>
+                            {% for anio in anios_escolares %}
+                                <option value="{{ anio.id }}">{{ anio.anio }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalidad_pago" class="form-label">Modalidad de Pago</label>
+                        <select class="form-select" id="modalidad_pago" name="modalidad_pago" required>
+                            <option value="">-- Seleccionar Modalidad --</option>
+                            <option value="mensual">Mensual</option>
+                            <option value="semestral">Semestral</option>
+                            <option value="anual">Anual</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Configurar el token CSRF para todas las solicitudes AJAX
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+const csrftoken = getCookie('csrftoken');
+
+$.ajaxSetup({
+    beforeSend: function(xhr, settings) {
+        if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+        }
+    }
+});
+
+$(document).ready(function() {
+    // Inicializar DataTable
+    var table = $('#apoderadosTable').DataTable({
+        "ajax": {
+            "url": "{% url 'apoderados_data' %}",
+            "dataSrc": "data",
+            "data": function(d) {
+                d.anio_escolar_id = $('#anioEscolarSelect').val();
+            }
+        },
+        "columns": [
+            { "data": "nombre" },
+            { "data": "apellidop" },
+            { "data": "apellidom" },
+            { "data": "email" },
+            { "data": "telefono" },
+            { "data": "rut" },
+            { "data": "arancel_anual" },
+            { "data": "meses_pago" },
+            { "data": "cantidad_alumnos" },
+            { "data": "modalidad_pago" },
+            {
+                "data": null,
+                "render": function(data, type, row) {
+                    return '<a href="/myapp/apoderados/' + row.apoderado_id + '/alumnos/" class="btn btn-sm btn-info">Gestionar Alumnos</a>';
+                }
+            }
+        ],
+        "language": {
+            "url": "{% static 'datatables/i18n/es-ES.json' %}"
+        },
+        "createdRow": function(row, data, dataIndex) {
+            $(row).attr('data-apoderado-id', data.apoderado_id);
+        }
+    });
+
+    // Manejar creación de apoderado
+    $('#crearApoderadoForm').on('submit', function(e) {
+        e.preventDefault();
+        if (!this.checkValidity()) {
+            e.stopPropagation();
+            $(this).addClass('was-validated');
+            return;
+        }
+        $.ajax({
+            url: "{% url 'apoderados_create' %}",
+            type: "POST",
+            data: $(this).serialize(),
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    $('#crearApoderadoModal').modal('hide');
+                    table.ajax.reload();
+                    $('#crearApoderadoForm')[0].reset();
+                } else {
+                    alert('Error: ' + response.error);
+                    $('#crearApoderadoModal').modal('hide');
+                }
+            },
+            error: function(xhr) {
+                console.error('Error en la solicitud AJAX:', xhr);
+                alert('Error al crear el apoderado: ' + (xhr.responseJSON ? xhr.responseJSON.error : 'Error desconocido'));
+                $('#crearApoderadoModal').modal('hide');
+            },
+            complete: function() {
+                $('body').removeClass('modal-open');
+                $('.modal-backdrop').remove();
+            }
+        });
+    });
+
+    // Añadir clase de validación de Bootstrap al formulario
+    $('#crearApoderadoForm').addClass('needs-validation');
+});
+
+function loadApoderados() {
+    $('#apoderadosTable').DataTable().ajax.reload();
+}
+</script>
+{% endblock %}

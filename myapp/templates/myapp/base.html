@@ -1,0 +1,134 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Mi Aplicación{% endblock %}</title>
+    <!-- Incluir Bootstrap CSS y JS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        .navbar { box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
+        .nav-link.section-title { font-weight: bold; cursor: pointer; }
+        .nav-link.option { padding-left: 2rem; }
+        .nav-link.disabled { color: #6c757d; }
+    </style>
+    <!-- Cargar CSS global -->
+    <link rel="stylesheet" href="{% static 'myapp/css/styles.css' %}">
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="p-3 m-0 border-0">
+    <!-- Navbar -->
+    {% if user.is_authenticated %}
+    <nav class="navbar navbar-expand-lg bg-body-tertiary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{% url 'index' %}">Sistema de Asignaciones</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'cargar_asignacion' %}">Ingresar Asignación</a>
+                    </li>
+                    <!-- Sección colapsable para Asignación Profesor -->
+                    <li class="nav-item">
+                        <a class="nav-link section-title" data-bs-toggle="collapse" href="#professorCollapse" role="button" aria-expanded="false" aria-controls="professorCollapse">
+                            Asignación Profesor
+                        </a>
+                        <div class="collapse" id="professorCollapse">
+                            {% if all_professors %}
+                                {% for professor in all_professors %}
+                                    {% if professor.id %}
+                                        <a class="nav-link option professor-link" href="{% url 'professor_schedule' professor.id %}" data-professor-id="{{ professor.id }}">{{ professor.nombre }}</a>
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <span class="nav-link option disabled">No hay profesores disponibles</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                    <!-- Sección colapsable para Asignación Curso -->
+                    <li class="nav-item">
+                        <a class="nav-link section-title" data-bs-toggle="collapse" href="#cursoCollapse" role="button" aria-expanded="false" aria-controls="cursoCollapse">
+                            Asignación Curso
+                        </a>
+                        <div class="collapse" id="cursoCollapse">
+                            {% if all_cursos %}
+                                {% for curso in all_cursos %}
+                                    {% if curso.id %}
+                                        <a class="nav-link option curso-link" href="{% url 'curso_schedule' curso.id %}" data-curso-id="{{ curso.id }}">{{ curso.nombre }}</a>
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <span class="nav-link option disabled">No hay cursos disponibles</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                    <!-- Sección colapsable para Administración -->
+                    <li class="nav-item">
+                        <a class="nav-link section-title" data-bs-toggle="collapse" href="#adminCollapse" role="button" aria-expanded="false" aria-controls="adminCollapse">
+                            Administración
+                        </a>
+                        <div class="collapse" id="adminCollapse">
+                            <a class="nav-link option" href="{% url 'ingresos' %}">Ingresos</a>
+                            <a class="nav-link option" href="{% url 'reportes' %}">Reportes</a>
+                            <a class="nav-link option" href="{% url 'apoderados' %}">Apoderados</a>
+                            <a class="nav-link option disabled" href="#">Descuentos</a>
+                            <a class="nav-link option disabled" href="#">Configuración</a>
+                        </div>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'account_logout' %}">Cerrar Sesión</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <!-- Mostrar mensajes de Django -->
+    <div class="container mt-3">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+    <!-- Script para depuración -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.professor-link').forEach(link => {
+                link.addEventListener('click', function(event) {
+                    const professorId = this.getAttribute('data-professor-id');
+                    const href = this.getAttribute('href');
+                    console.log('Clic en profesor:', professorId, 'URL:', href);
+                    if (!professorId || professorId === 'null') {
+                        event.preventDefault();
+                        alert('Error: ID de profesor no válido');
+                    }
+                });
+            });
+            document.querySelectorAll('.curso-link').forEach(link => {
+                link.addEventListener('click', function(event) {
+                    const cursoId = this.getAttribute('data-curso-id');
+                    const href = this.getAttribute('href');
+                    console.log('Clic en curso:', cursoId, 'URL:', href);
+                    if (!cursoId || cursoId === 'null') {
+                        event.preventDefault();
+                        alert('Error: ID de curso no válido');
+                    }
+                });
+            });
+        });
+    </script>
+    {% endif %}
+    <div class="container mt-4">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

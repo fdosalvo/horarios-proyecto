@@ -1,0 +1,65 @@
+
+{% extends 'myapp/base.html' %}
+
+{% block title %}Bienvenido{% endblock %}
+
+{% block content %}
+{% if not user.is_authenticated %}
+<!-- Página de inicio para usuarios no autenticados -->
+<div class="container text-center mt-5">
+    <h1 class="display-4">Bienvenido al Sistema de Asignaciones</h1>
+    <p class="lead mt-3">Organiza y gestiona los horarios de profesores y cursos de manera eficiente.</p>
+    <div class="row justify-content-center mt-5">
+        <div class="col-md-6">
+            <div class="card shadow-lg">
+                <div class="card-body">
+                    <h3 class="card-title">Iniciar Sesión</h3>
+                    <p class="card-text">Accede con tu cuenta de Gmail para comenzar.</p>
+                    <a href="/accounts/google/login/" class="btn btn-primary btn-lg">
+                        <i class="bi bi-google"></i> Iniciar Sesión con Gmail
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+    }
+    .card {
+        border: none;
+        border-radius: 15px;
+        background: #ffffff;
+    }
+    .card-body {
+        padding: 2rem;
+    }
+    .btn-primary {
+        background-color: #4285f4;
+        border: none;
+        transition: background-color 0.3s;
+    }
+    .btn-primary:hover {
+        background-color: #3267d6;
+    }
+    .display-4 {
+        font-weight: 700;
+        color: #333;
+    }
+    .lead {
+        color: #666;
+    }
+</style>
+{% else %}
+<!-- Contenido para usuarios autenticados -->
+<div class="text-center">
+    <h1>Bienvenido, {{ user.email }}!</h1>
+    <p>Selecciona una opción del menú para comenzar.</p>
+</div>
+{% endif %}
+{% endblock %}

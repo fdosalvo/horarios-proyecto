@@ -1,0 +1,148 @@
+{% extends "myapp/base.html" %}
+{% block title %}Reportes{% endblock %}
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Dashboard de Ingresos</h1>
+
+    <!-- Formulario de filtro -->
+    <form method="GET" class="mb-4">
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="filtro" id="todos" value="todos" {% if filtro == 'todos' %}checked{% endif %}>
+            <label class="form-check-label" for="todos">Todos los datos</label>
+        </div>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="filtro" id="hasta_mes_actual" value="hasta_mes_actual" {% if filtro == 'hasta_mes_actual' %}checked{% endif %}>
+            <label class="form-check-label" for="hasta_mes_actual">Hasta el mes actual</label>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Aplicar</button>
+    </form>
+
+    <!-- Gráficos -->
+    <div class="row">
+        <!-- Gráfico de barras -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">Pendientes y Atrasados por Mes</div>
+                <div class="card-body">
+                    <canvas id="barChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Gráfico de torta -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">Distribución de Estados</div>
+                <div class="card-body">
+                    <canvas id="pieChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Gráfico de línea -->
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header">Proyección de Ingresos Futuros</div>
+                <div class="card-body">
+                    <canvas id="lineChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Incluir Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- Variables de datos -->
+<script>
+    const barLabels = {{ bar_labels|safe }};
+    const barPendiente = {{ bar_pendiente|safe }};
+    const barAtrasado = {{ bar_atrasado|safe }};
+    const pieData = {{ pie_data|safe }};
+    const lineLabels = {{ line_labels|safe }};
+    const lineMontos = {{ line_montos|safe }};
+</script>
+<!-- Gráficos -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Gráfico de barras
+    const barCtx = document.getElementById('barChart').getContext('2d');
+    new Chart(barCtx, {
+        type: 'bar',
+        data: {
+            labels: barLabels,
+            datasets: [
+                {
+                    label: 'Pendiente',
+                    data: barPendiente,
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Atrasado',
+                    data: barAtrasado,
+                    backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            scales: {
+                y: { beginAtZero: true, title: { display: true, text: 'Monto ($)' } },
+                x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } }
+            },
+            plugins: { legend: { position: 'top' } }
+        }
+    });
+
+    // Gráfico de torta
+    const pieCtx = document.getElementById('pieChart').getContext('2d');
+    new Chart(pieCtx, {
+        type: 'pie',
+        data: {
+            labels: pieData.labels,
+            datasets: [{
+                data: pieData.values,
+                backgroundColor: [
+                    'rgba(75, 192, 192, 0.5)',
+                    'rgba(54, 162, 235, 0.5)',
+                    'rgba(255, 99, 132, 0.5)'
+                ],
+                borderColor: [
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(255, 99, 132, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            plugins: { legend: { position: 'top' } }
+        }
+    });
+
+    // Gráfico de línea
+    const lineCtx = document.getElementById('lineChart').getContext('2d');
+    new Chart(lineCtx, {
+        type: 'line',
+        data: {
+            labels: lineLabels,
+            datasets: [{
+                label: 'Ingresos Esperados',
+                data: lineMontos,
+                fill: false,
+                borderColor: 'rgba(75, 192, 192, 1)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            scales: {
+                y: { beginAtZero: true, title: { display: true, text: 'Monto ($)' } }
+            },
+            plugins: { legend: { position: 'top' } }
+        }
+    });
+});
+</script>
+{% endblock %}
+

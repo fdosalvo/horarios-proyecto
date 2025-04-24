@@ -1,0 +1,216 @@
+{% extends "myapp/base.html" %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Alumnos de {{ apoderado.nombre }} {{ apoderado.apellidop }} {{ apoderado.apellidom }}</h2>
+    <a href="{% url 'apoderados' %}" class="btn btn-secondary mb-3">Volver a Apoderados</a>
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#crearAlumnoModal">Crear Alumno</button>
+    <table id="alumnosTable" class="table table-striped">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Apellido Paterno</th>
+                <th>Apellido Materno</th>
+                <th>Email</th>
+                <th>Fecha de Nacimiento</th>
+                <th>Sexo</th>
+                <th>Curso</th>
+                <th>Año Escolar</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<!-- Modal para Crear Alumno -->
+<div class="modal fade" id="crearAlumnoModal" tabindex="-1" aria-labelledby="crearAlumnoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="crearAlumnoModalLabel">Crear Alumno</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="crearAlumnoForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="nombre" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="apellidop" class="form-label">Apellido Paterno</label>
+                        <input type="text" class="form-control" id="apellidop" name="apellidop" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="apellidom" class="form-label">Apellido Materno</label>
+                        <input type="text" class="form-control" id="apellidom" name="apellidom" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email (Opcional)</label>
+                        <input type="email" class="form-control" id="email" name="email">
+                    </div>
+                    <div class="mb-3">
+                        <label for="fecha_nacimiento" class="form-label">Fecha de Nacimiento</label>
+                        <input type="date" class="form-control" id="fecha_nacimiento" name="fecha_nacimiento" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="sexo" class="form-label">Sexo</label>
+                        <select class="form-select" id="sexo" name="sexo" required>
+                            <option value="">-- Seleccionar Sexo --</option>
+                            <option value="M">Masculino</option>
+                            <option value="F">Femenino</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="anio_escolar" class="form-label">Año Escolar</label>
+                        <select class="form-select" id="anio_escolar" name="anio_escolar" required>
+                            <option value="">-- Seleccionar Año --</option>
+                            {% for anio in anios_escolares %}
+                            <option value="{{ anio.id }}" {% if anio.id == apoderado.anio_escolar.id %}selected{% endif %}>{{ anio.anio }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="curso" class="form-label">Curso</label>
+                        <select class="form-select" id="curso" name="curso" required>
+                            <option value="">-- Seleccionar Curso --</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Configurar el token CSRF para todas las solicitudes AJAX
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+const csrftoken = getCookie('csrftoken');
+
+$.ajaxSetup({
+    beforeSend: function(xhr, settings) {
+        if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+        }
+    }
+});
+
+$(document).ready(function() {
+    // Inicializar DataTable
+    $('#alumnosTable').DataTable({
+        "ajax": {
+            "url": "{% url 'alumnos_data' apoderado.id %}",
+            "dataSrc": "data"
+        },
+        "columns": [
+            { "data": "nombre" },
+            { "data": "apellidop" },
+            { "data": "apellidom" },
+            { "data": "email" },
+            { "data": "fecha_nacimiento" },
+            { "data": "sexo" },
+            { "data": "curso" },
+            { "data": "anio_escolar" }
+        ],
+        "language": {
+            "url": "{% static 'datatables/i18n/es-ES.json' %}"
+        }
+    });
+
+    // Cargar cursos al cambiar el año escolar
+    $('#anio_escolar').on('change', function() {
+        var anioEscolarId = $(this).val();
+        if (anioEscolarId) {
+            $.ajax({
+                url: "{% url 'get_cursos_por_anio' %}",
+                data: {
+                    'anio_escolar_id': anioEscolarId
+                },
+                dataType: 'json',
+                success: function(response) {
+                    var $cursoSelect = $('#curso');
+                    $cursoSelect.empty();
+                    $cursoSelect.append('<option value="">-- Seleccionar Curso --</option>');
+                    $.each(response.cursos, function(index, curso) {
+                        $cursoSelect.append('<option value="' + curso.id + '">' + curso.nombre + '</option>');
+                    });
+                },
+                error: function() {
+                    alert('Error al cargar los cursos.');
+                }
+            });
+        } else {
+            $('#curso').empty().append('<option value="">-- Seleccionar Curso --</option>');
+        }
+    });
+
+    // Cargar cursos iniciales basados en el año escolar del apoderado
+    $('#anio_escolar').trigger('change');
+
+    // Manejar creación de alumno
+    $('#crearAlumnoForm').on('submit', function(e) {
+    e.preventDefault();
+    if (!this.checkValidity()) {
+        e.stopPropagation();
+        $(this).addClass('was-validated');
+        return;
+    }
+    $.ajax({
+        url: "{% url 'alumnos_create' apoderado.id %}",
+        type: "POST",
+        data: $(this).serialize(),
+        dataType: 'json',
+        success: function(response) {
+            if (response.success) {
+                $('#crearAlumnoModal').modal('hide');  // Cerrar el modal
+                $('#alumnosTable').DataTable().ajax.reload();  // Actualizar la tabla
+                $('#crearAlumnoForm')[0].reset();
+                $('#anio_escolar').trigger('change'); // Resetear cursos
+            } else {
+                alert('Error: ' + response.error);
+                $('#crearAlumnoModal').modal('hide');  // Cerrar el modal incluso en caso de error
+            }
+        },
+        error: function(xhr) {
+            console.error('Error en la solicitud AJAX:', xhr);  // Depurar el error
+            alert('Error al crear el alumno: ' + (xhr.responseJSON ? xhr.responseJSON.error : 'Error desconocido'));
+            $('#crearAlumnoModal').modal('hide');  // Cerrar el modal incluso en caso de error
+        },
+        complete: function() {
+            // Asegurarse de que el fondo del modal se elimine
+            $('body').removeClass('modal-open');
+            $('.modal-backdrop').remove();
+        }
+    });
+});
+
+    // Añadir clase de validación de Bootstrap al formulario
+    $('#crearAlumnoForm').addClass('needs-validation');
+});
+</script>
+{% endblock %}
