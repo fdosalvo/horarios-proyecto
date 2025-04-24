@@ -1,0 +1,10 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"  # Para dependencias de Python (requirements.txt)
+    directory: "/"  # La ubicación de requirements.txt está en la raíz del proyecto
+    schedule:
+      interval: "weekly"  # Verifica actualizaciones una vez por semana
+      day: "monday"  # Ejecuta las verificaciones los lunes
+      time: "09:00"  # A las 9:00 AM (hora UTC)
+      timezone: "America/Argentina/Buenos_Aires"  # Tu zona horaria
+    open-pull-requests-limit: 2  # Máximo 2 pull requests abiertos a la vez
