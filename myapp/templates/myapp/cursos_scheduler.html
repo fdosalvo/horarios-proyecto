@@ -7,7 +7,7 @@
     <div class="card-custom">
         <h2>Horario de {{ curso.nombre }}</h2>
         <div class="text-center mb-4">
-            <a href="{% url 'generate_curso_pdf' curso.id %}" class="btn btn-secondary">Descargar PDF</a>
+            <a href="{% url 'myapp:generate_curso_pdf' curso.id %}" class="btn btn-secondary">Descargar PDF</a>
         </div>
         {% for day, data in schedule_data.items %}
             <h3>{{ day }}</h3>

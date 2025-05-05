@@ -3,6 +3,7 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from datetime import timedelta
+from django.contrib.auth.models import User
 
 class AnioEscolar(models.Model):
     anio = models.IntegerField(unique=True, verbose_name="Año Escolar")
@@ -182,3 +183,11 @@ class Mensualidad(models.Model):
     def __str__(self):
         return f"Mensualidad {self.numero} - {self.apoderado} ({self.estado})"
     
+class OTP(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"OTP {self.code} for {self.user.username}"

@@ -2,7 +2,7 @@
 {% block title %}Reportes{% endblock %}
 {% block content %}
 <div class="container">
-    <h1 class="mb-4">Dashboard de Ingresos</h1>
+    <h1 class="mb-4">Dashboard de IngresosXXx</h1>
 
     <!-- Formulario de filtro -->
     <form method="GET" class="mb-4">
@@ -24,7 +24,11 @@
             <div class="card">
                 <div class="card-header">Pendientes y Atrasados por Mes</div>
                 <div class="card-body">
-                    <canvas id="barChart"></canvas>
+                    {% if bar_labels %}
+                        <canvas id="barChart"></canvas>
+                    {% else %}
+                        <p>No hay datos disponibles para el gráfico de barras.</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -33,7 +37,11 @@
             <div class="card">
                 <div class="card-header">Distribución de Estados</div>
                 <div class="card-body">
-                    <canvas id="pieChart"></canvas>
+                    {% if pie_data.values|length > 0 %}
+                        <canvas id="pieChart"></canvas>
+                    {% else %}
+                        <p>No hay datos disponibles para el gráfico de torta.</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -42,7 +50,11 @@
             <div class="card">
                 <div class="card-header">Proyección de Ingresos Futuros</div>
                 <div class="card-body">
-                    <canvas id="lineChart"></canvas>
+                    {% if line_labels %}
+                        <canvas id="lineChart"></canvas>
+                    {% else %}
+                        <p>No hay datos disponibles para el gráfico de línea.</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -51,19 +63,14 @@
 
 <!-- Incluir Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<!-- Variables de datos -->
-<script>
-    const barLabels = {{ bar_labels|safe }};
-    const barPendiente = {{ bar_pendiente|safe }};
-    const barAtrasado = {{ bar_atrasado|safe }};
-    const pieData = {{ pie_data|safe }};
-    const lineLabels = {{ line_labels|safe }};
-    const lineMontos = {{ line_montos|safe }};
-</script>
 <!-- Gráficos -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Gráfico de barras
+    {% if bar_labels %}
+    const barLabels = {{ bar_labels|safe }};
+    const barPendiente = {{ bar_pendiente|safe }};
+    const barAtrasado = {{ bar_atrasado|safe }};
     const barCtx = document.getElementById('barChart').getContext('2d');
     new Chart(barCtx, {
         type: 'bar',
@@ -94,8 +101,11 @@ document.addEventListener('DOMContentLoaded', function() {
             plugins: { legend: { position: 'top' } }
         }
     });
+    {% endif %}
 
     // Gráfico de torta
+    {% if pie_data.values|length > 0 %}
+    const pieData = {{ pie_data|safe }};
     const pieCtx = document.getElementById('pieChart').getContext('2d');
     new Chart(pieCtx, {
         type: 'pie',
@@ -120,8 +130,12 @@ document.addEventListener('DOMContentLoaded', function() {
             plugins: { legend: { position: 'top' } }
         }
     });
+    {% endif %}
 
-    // Gráfico de línea
+    // Gráfico de líneas
+    {% if line_labels %}
+    const lineLabels = {{ line_labels|safe }};
+    const lineMontos = {{ line_montos|safe }};
     const lineCtx = document.getElementById('lineChart').getContext('2d');
     new Chart(lineCtx, {
         type: 'line',
@@ -142,7 +156,7 @@ document.addEventListener('DOMContentLoaded', function() {
             plugins: { legend: { position: 'top' } }
         }
     });
+    {% endif %}
 });
 </script>
 {% endblock %}
-

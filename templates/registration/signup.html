@@ -1,0 +1,95 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}Registrarse - Sistema de Asignaciones{% endblock %}
+
+{% block extra_head %}
+<style>
+    .signup-container {
+        min-height: 80vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 2rem;
+    }
+    .signup-card {
+        max-width: 400px;
+        width: 100%;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border: none;
+    }
+    .signup-card .card-header {
+        background-color: #28a745;
+        color: white;
+        text-align: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    .signup-card .card-body {
+        padding: 2rem;
+    }
+    .signup-card .btn-primary {
+        background-color: #28a745;
+        border-color: #28a745;
+        width: 100%;
+    }
+    .signup-card .btn-primary:hover {
+        background-color: #218838;
+        border-color: #218838;
+    }
+    .signup-card .form-text {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="signup-container">
+    <div class="card signup-card">
+        <div class="card-header">
+            Registrarse
+        </div>
+        <div class="card-body">
+            <!-- Mostrar mensajes de error o éxito -->
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="id_username" class="form-label">Nombre de Usuario</label>
+                    {{ form.username }}
+                    {% if form.username.errors %}
+                        <div class="text-danger small">{{ form.username.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="mb-3">
+                    <label for="id_password1" class="form-label">Contraseña</label>
+                    {{ form.password1 }}
+                    {% if form.password1.errors %}
+                        <div class="text-danger small">{{ form.password1.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="mb-3">
+                    <label for="id_password2" class="form-label">Confirmar Contraseña</label>
+                    {{ form.password2 }}
+                    {% if form.password2.errors %}
+                        <div class="text-danger small">{{ form.password2.errors }}</div>
+                    {% endif %}
+                </div>
+                <button type="submit" class="btn btn-primary">Crear Cuenta</button>
+            </form>
+
+            <p class="text-center mt-3">
+                ¿Ya tienes una cuenta? <a href="{% url 'login' %}" class="text-primary">Inicia Sesión</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

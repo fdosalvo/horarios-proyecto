@@ -40,7 +40,12 @@
                 <td>{{ data.apoderado.arancel_anual }}</td>
                 <td>{{ data.apoderado.meses_pago }}</td>
                 <td>{{ data.apoderado.cantidad_alumnos }}</td>
-                <td>{{ data.total_pendiente|floatformat:2 }}</td>
+                <td>
+                    {{ data.total_pendiente|floatformat:2 }}
+                    <button class="btn btn-sm btn-outline-secondary speak-total" data-total="{{ data.total_pendiente|floatformat:2 }}">
+                        <i class="bi bi-megaphone"></i>
+                    </button>
+                </td>
                 <td>{{ data.total_atrasado|floatformat:2 }}</td>
                 <td>{{ data.total_cancelado|floatformat:2 }}</td>
             </tr>
@@ -71,6 +76,71 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
+// Función para convertir números a palabras en español
+function numberToWordsSpanish(number) {
+    const units = ["", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve"];
+    const teens = ["diez", "once", "doce", "trece", "catorce", "quince", "dieciséis", "diecisiete", "dieciocho", "diecinueve"];
+    const tens = ["", "", "veinte", "treinta", "cuarenta", "cincuenta", "sesenta", "setenta", "ochenta", "noventa"];
+    const hundreds = ["", "ciento", "doscientos", "trescientos", "cuatrocientos", "quinientos", "seiscientos", "setecientos", "ochocientos", "novecientos"];
+    const thousands = ["", "mil", "millón", "mil millones", "billón"];
+
+    // Separar la parte entera y decimal
+    let [integerPart, decimalPart] = number.toString().split('.');
+    integerPart = parseInt(integerPart);
+    decimalPart = decimalPart ? parseInt(decimalPart.padEnd(2, '0')) : 0;
+
+    // Convertir la parte entera a palabras
+    function convertLessThanThousand(num) {
+        if (num === 0) return "";
+        if (num < 10) return units[num];
+        if (num < 20) return teens[num - 10];
+        if (num < 100) {
+            let ten = Math.floor(num / 10);
+            let unit = num % 10;
+            return unit === 0 ? tens[ten] : `${tens[ten]} y ${units[unit]}`;
+        }
+        if (num < 1000) {
+            let hundred = Math.floor(num / 100);
+            let remainder = num % 100;
+            if (hundred === 1 && remainder === 0) return "cien";
+            return remainder === 0 ? hundreds[hundred] : `${hundreds[hundred]} ${convertLessThanThousand(remainder)}`;
+        }
+    }
+
+    function convertNumber(num) {
+        if (num === 0) return "cero";
+        let parts = [];
+        let groupCount = 0;
+
+        while (num > 0) {
+            let group = num % 1000;
+            if (group > 0) {
+                let groupText = convertLessThanThousand(group);
+                if (groupCount === 0) {
+                    parts.unshift(groupText);
+                } else if (groupCount === 1) {
+                    parts.unshift(group === 1 ? "mil" : `${groupText} mil`);
+                } else if (groupCount === 2) {
+                    parts.unshift(group === 1 ? "un millón" : `${groupText} millones`);
+                }
+            }
+            num = Math.floor(num / 1000);
+            groupCount++;
+        }
+        return parts.join(" ");
+    }
+
+    // Convertir la parte entera
+    let integerText = convertNumber(integerPart);
+    // Convertir la parte decimal (centavos)
+    let decimalText = decimalPart > 0 ? `con ${convertNumber(decimalPart)} centavos` : "";
+
+    // Ajustar plural para "pesos"
+    let currencyText = integerPart === 1 ? "peso" : "pesos";
+
+    return `${integerText} ${currencyText} ${decimalText}`.trim();
+}
+
 $(document).ready(function() {
     // Inicializar DataTable
     var table = $('#apoderadosTable').DataTable({
@@ -117,12 +187,26 @@ $(document).ready(function() {
         row.data(rowData).draw(false);
     }
 
+    // Manejar clic en el botón de parlante para anunciar el total pendiente
+    $('#apoderadosTable tbody').on('click', 'button.speak-total', function() {
+        var total = $(this).data('total');
+        var totalInWords = numberToWordsSpanish(total);
+        var message = `El total pendiente a la fecha es ${totalInWords}`;
+
+        // Usar la API de síntesis de voz
+        var utterance = new SpeechSynthesisUtterance(message);
+        utterance.lang = 'es-ES'; // Establecer el idioma a español
+        utterance.rate = 1; // Velocidad normal
+        utterance.pitch = 1; // Tono normal
+        window.speechSynthesis.speak(utterance);
+    });
+
     // Manejar clic en el botón de drilldown
     $('#apoderadosTable tbody').on('click', 'button.toggle-details', function() {
         var tr = $(this).closest('tr');
         var row = table.row(tr);
         var apoderadoId = $(this).data('id');
-        var detailsUrl = '{% url "ingresos_details" 0 %}'.replace('0', apoderadoId);
+        var detailsUrl = '{% url "myapp:ingresos_details" 0 %}'.replace('0', apoderadoId);
 
         if (row.child.isShown()) {
             // Cerrar el drilldown
@@ -181,7 +265,7 @@ $(document).ready(function() {
                         var mensualidadId = form.data('id');
                         var metodoPago = form.find('select[name="metodo_pago"]').val();
                         var row = form.closest('tr');
-                        var url = '{% url "marcar_mensualidad_pagada" %}';
+                        var url = '{% url "myapp:marcar_mensualidad_pagada" %}';
 
                         // Obtener el monto y la fecha de vencimiento desde la fila
                         var monto = row.find('td:nth-child(3)').text(); // "Monto Final"

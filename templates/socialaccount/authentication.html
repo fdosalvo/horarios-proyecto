@@ -1,0 +1,71 @@
+<!-- NUEVA VERSION DE AUTHENTICATION.HTML - 2025-04-29 -->
+{% extends 'myapp/base.html' %}
+{% load i18n %}
+{% load socialaccount %}
+
+{% block title %}{% trans "Confirmar Inicio de Sesión" %} - Sistema de Asignaciones{% endblock %}
+
+{% block extra_head %}
+<style>
+    .confirmation-container {
+        min-height: 80vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 2rem;
+    }
+    .confirmation-card {
+        max-width: 500px;
+        width: 100%;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border: none;
+    }
+    .confirmation-card .card-header {
+        background-color: #4285f4;
+        color: white;
+        text-align: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    .confirmation-card .card-body {
+        padding: 2rem;
+        text-align: center;
+    }
+    .confirmation-card .btn-primary {
+        background-color: #4285f4;
+        border-color: #4285f4;
+        width: 100%;
+        max-width: 200px;
+    }
+    .confirmation-card .btn-primary:hover {
+        background-color: #3267d6;
+        border-color: #3267d6;
+    }
+    .confirmation-card .btn-secondary {
+        width: 100%;
+        max-width: 200px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- NUEVA VERSION DE AUTHENTICATION.HTML - 2025-04-29 -->
+<div class="confirmation-container">
+    <div class="card confirmation-card">
+        <div class="card-header">
+            {% trans "Confirmar Inicio de Sesión" %}
+        </div>
+        <div class="card-body">
+            <p>{% blocktrans with email=email %}Estás a punto de iniciar sesión utilizando tu cuenta de Google (<strong>{{ email }}</strong>).{% endblocktrans %}</p>
+            <form method="post" action="{% provider_login_url provider.id process='login' %}">
+                {% csrf_token %}
+                {% if redirect_field_value %}
+                    <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+                {% endif %}
+                <button type="submit" class="btn btn-primary mb-3">{% trans "Continuar" %}</button>
+            </form>
+            <a href="{% url 'account_login' %}" class="btn btn-secondary">{% trans "Cancelar" %}</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

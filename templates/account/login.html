@@ -1,0 +1,156 @@
+{% extends 'myapp/base.html' %}
+{% load socialaccount %}
+{% load i18n %}
+
+{% block title %}{% trans "Iniciar Sesión" %} - Sistema de Asignaciones{% endblock %}
+
+{% block extra_head %}
+<style>
+    .login-container {
+        min-height: 80vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 2rem;
+        width: 100%;
+        margin: 0 auto;
+    }
+    .login-card {
+        max-width: 400px;
+        width: 100%;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border: none;
+    }
+    .login-card .card-header {
+        background-color: #007bff;
+        color: white;
+        text-align: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    .login-card .card-body {
+        padding: 2rem;
+    }
+    .login-card .btn-primary {
+        background-color: #007bff;
+        border-color: #007bff;
+        width: 100%;
+    }
+    .login-card .btn-primary:hover {
+        background-color: #0056b3;
+        border-color: #0056b3;
+    }
+    .social-login {
+        text-align: center;
+        margin-top: 1rem;
+    }
+    .social-login .btn {
+        background-color: #4285f4;
+        color: white;
+        width: 100%;
+    }
+    .social-login .btn:hover {
+        background-color: #3267d6;
+    }
+    .form-check-label {
+        font-size: 0.9rem;
+    }
+    .forgot-password {
+        font-size: 0.9rem;
+        color: #007bff;
+    }
+    .forgot-password:hover {
+        color: #0056b3;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="card login-card">
+        <div class="card-header">
+            {% trans "Iniciar Sesión" %}
+        </div>
+        <div class="card-body">
+            <!-- Mostrar mensajes de error o éxito -->
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Mensaje de error si el formulario falla -->
+            {% if form.errors %}
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    {% trans "Nombre de usuario o contraseña incorrectos. Por favor, intenta de nuevo." %}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endif %}
+
+            {% if show_otp_form %}
+                <!-- Formulario para ingresar el OTP -->
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="otp" class="form-label">{% trans "Código OTP" %}</label>
+                        <input type="text" name="otp" id="otp" class="form-control" placeholder="{% trans 'Ingresa el código OTP' %}" required>
+                    </div>
+                    <!-- Campo oculto para redirección -->
+                    {% if redirect_field_value %}
+                        <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+                    {% endif %}
+                    <button type="submit" class="btn btn-primary">{% trans "Validar OTP" %}</button>
+                </form>
+            {% else %}
+                <!-- Formulario de login estándar -->
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="id_login" class="form-label">{% trans "Usuario o Correo Electrónico" %}</label>
+                        {{ form.login }}
+                        {% if form.login.errors %}
+                            <div class="text-danger small">{{ form.login.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_password" class="form-label">{% trans "Contraseña" %}</label>
+                        {{ form.password }}
+                        {% if form.password.errors %}
+                            <div class="text-danger small">{{ form.password.errors }}</div>
+                        {% endif %}
+                        <a href="{% url 'myapp:account_reset_password' %}" class="forgot-password float-end mt-1">{% trans "¿Olvidaste tu contraseña?" %}</a>
+                    </div>
+                    <div class="mb-3 form-check">
+                        {{ form.remember }}
+                        <label for="id_remember" class="form-check-label">{% trans "Recordarme" %}</label>
+                        {% if form.remember.errors %}
+                            <div class="text-danger small">{{ form.remember.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <!-- Campo oculto para redirección -->
+                    {% if redirect_field_value %}
+                        <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+                    {% endif %}
+                    <button type="submit" class="btn btn-primary">{% trans "Iniciar Sesión" %}</button>
+                </form>
+
+                <!-- Enlace para registrarse -->
+                <p class="text-center mt-3">
+                    {% trans "¿No tienes una cuenta?" %} <a href="{% url 'myapp:signup' %}" class="forgot-password">{% trans "Regístrate" %}</a>
+                </p>
+
+                <!-- Inicio de sesión con Google -->
+                <div class="social-login">
+                    <p>{% trans "O inicia sesión con:" %}</p>
+                    <a href="{% provider_login_url 'google' %}" class="btn btn-google">
+                        <i class="bi bi-google me-2"></i> Google
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

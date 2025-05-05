@@ -14,7 +14,7 @@
 <div class="container mt-5">
     <h2>Mantenedor de Apoderados</h2>
     <div class="mb-3">
-        <a href="{% url 'reporte_alumnos_por_anio_curso' %}" class="btn btn-info">Ver Reporte de Alumnos por Año y Curso</a>
+        <a href="{% url 'myapp:reporte_alumnos_por_anio_curso' %}" class="btn btn-info">Ver Reporte de Alumnos por Año y Curso</a>
     </div>
     <div class="mb-3">
         <label for="anioEscolarSelect" class="form-label">Seleccionar Año Escolar:</label>
@@ -153,7 +153,7 @@ $(document).ready(function() {
     // Inicializar DataTable
     var table = $('#apoderadosTable').DataTable({
         "ajax": {
-            "url": "{% url 'apoderados_data' %}",
+            "url": "{% url 'myapp:apoderados_data' %}",
             "dataSrc": "data",
             "data": function(d) {
                 d.anio_escolar_id = $('#anioEscolarSelect').val();
@@ -194,7 +194,7 @@ $(document).ready(function() {
             return;
         }
         $.ajax({
-            url: "{% url 'apoderados_create' %}",
+            url: "{% url 'myapp:apoderados_create' %}",
             type: "POST",
             data: $(this).serialize(),
             dataType: 'json',
@@ -226,6 +226,7 @@ $(document).ready(function() {
 
 function loadApoderados() {
     $('#apoderadosTable').DataTable().ajax.reload();
+    
 }
 </script>
 {% endblock %}

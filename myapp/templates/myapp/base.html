@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Mi Aplicación{% endblock %}</title>
+    <title>{% block title %}Sistema de Asignaciones{% endblock %}</title>
     <!-- Incluir Bootstrap CSS y JS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
@@ -14,25 +14,27 @@
         .nav-link.section-title { font-weight: bold; cursor: pointer; }
         .nav-link.option { padding-left: 2rem; }
         .nav-link.disabled { color: #6c757d; }
+        /* Estilo para el icono del micrófono */
+        .mic-icon { cursor: pointer; font-size: 1.5rem; margin-left: 1rem; }
+        .mic-icon.listening { color: #dc3545; } /* Color rojo cuando está escuchando */
     </style>
     <!-- Cargar CSS global -->
     <link rel="stylesheet" href="{% static 'myapp/css/styles.css' %}">
-
+    <!-- Bloque para scripts y estilos adicionales -->
     {% block extra_head %}{% endblock %}
 </head>
 <body class="p-3 m-0 border-0">
     <!-- Navbar -->
-    {% if user.is_authenticated %}
     <nav class="navbar navbar-expand-lg bg-body-tertiary">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{% url 'index' %}">Sistema de Asignaciones</a>
+            <a class="navbar-brand" href="/">Sistema de Asignaciones</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav">
+                <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'cargar_asignacion' %}">Ingresar Asignación</a>
+                        <a class="nav-link" href="{% url 'myapp:cargar_asignacion' %}" data-menu-action="ir a cargar asignación">Ingresar Asignación</a>
                     </li>
                     <!-- Sección colapsable para Asignación Profesor -->
                     <li class="nav-item">
@@ -41,10 +43,14 @@
                         </a>
                         <div class="collapse" id="professorCollapse">
                             {% if all_professors %}
-                                {% for professor in all_professors %}
-                                    {% if professor.id %}
-                                        <a class="nav-link option professor-link" href="{% url 'professor_schedule' professor.id %}" data-professor-id="{{ professor.id }}">{{ professor.nombre }}</a>
-                                    {% endif %}
+                                {% for profesor in all_professors %}
+                                    <a class="nav-link option professor-link" 
+                                       href="{% url 'myapp:professor_schedule' profesor.id %}" 
+                                       data-professor-id="{{ profesor.id }}" 
+                                       data-professor-name="{{ profesor.nombre }}"
+                                       data-menu-action="dame el horario del profesor {{ profesor.nombre }}">
+                                        {{ profesor.nombre }}
+                                    </a>
                                 {% endfor %}
                             {% else %}
                                 <span class="nav-link option disabled">No hay profesores disponibles</span>
@@ -59,9 +65,13 @@
                         <div class="collapse" id="cursoCollapse">
                             {% if all_cursos %}
                                 {% for curso in all_cursos %}
-                                    {% if curso.id %}
-                                        <a class="nav-link option curso-link" href="{% url 'curso_schedule' curso.id %}" data-curso-id="{{ curso.id }}">{{ curso.nombre }}</a>
-                                    {% endif %}
+                                    <a class="nav-link option curso-link" 
+                                       href="{% url 'myapp:curso_schedule' curso.id %}" 
+                                       data-curso-id="{{ curso.id }}" 
+                                       data-curso-name="{{ curso.nombre }}"
+                                       data-menu-action="dame las asignaciones del curso {{ curso.nombre }}">
+                                        {{ curso.nombre }}
+                                    </a>
                                 {% endfor %}
                             {% else %}
                                 <span class="nav-link option disabled">No hay cursos disponibles</span>
@@ -74,17 +84,19 @@
                             Administración
                         </a>
                         <div class="collapse" id="adminCollapse">
-                            <a class="nav-link option" href="{% url 'ingresos' %}">Ingresos</a>
-                            <a class="nav-link option" href="{% url 'reportes' %}">Reportes</a>
-                            <a class="nav-link option" href="{% url 'apoderados' %}">Apoderados</a>
-                            <a class="nav-link option disabled" href="#">Descuentos</a>
-                            <a class="nav-link option disabled" href="#">Configuración</a>
+                            <a class="nav-link option" href="{% url 'myapp:ingresos' %}" data-menu-action="ir a ingresos">Ingresos</a>
+                            <a class="nav-link option" href="{% url 'myapp:reportes' %}" data-menu-action="ir a reportes">Reportes</a>
+                            <a class="nav-link option" href="{% url 'myapp:apoderados' %}" data-menu-action="ir a apoderados">Apoderados</a>
+                            <a class="nav-link option disabled" href="#" data-menu-action="ir a descuentos">Descuentos</a>
+                            <a class="nav-link option disabled" href="#" data-menu-action="ir a configuración">Configuración</a>
                         </div>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'account_logout' %}">Cerrar Sesión</a>
+                        <a class="nav-link" href="{% url 'myapp:account_logout' %}" data-menu-action="cerrar sesión">Cerrar Sesión</a>
                     </li>
                 </ul>
+                <!-- Icono de micrófono -->
+                <span class="mic-icon bi bi-mic" id="micButton" title="Comandos por voz"></span>
             </div>
         </div>
     </nav>
@@ -99,9 +111,10 @@
             {% endfor %}
         {% endif %}
     </div>
-    <!-- Script para depuración -->
+    <!-- Script para depuración y comandos por voz -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Depuración existente para profesores y cursos
             document.querySelectorAll('.professor-link').forEach(link => {
                 link.addEventListener('click', function(event) {
                     const professorId = this.getAttribute('data-professor-id');
@@ -124,11 +137,120 @@
                     }
                 });
             });
+
+            // Reconocimiento de voz
+            const micButton = document.getElementById('micButton');
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+            if (SpeechRecognition) {
+                const recognition = new SpeechRecognition();
+                recognition.lang = 'es-ES'; // Idioma español
+                recognition.interimResults = false; // Solo resultados finales
+                recognition.maxAlternatives = 1;
+
+                micButton.addEventListener('click', () => {
+                    micButton.classList.add('listening');
+                    recognition.start();
+                    console.log('Escuchando...');
+                });
+
+                recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript.toLowerCase().trim();
+                    console.log('Comando reconocido:', transcript);
+                    micButton.classList.remove('listening');
+
+                    // Procesar el comando
+                    processVoiceCommand(transcript);
+                };
+
+                recognition.onerror = (event) => {
+                    console.error('Error en el reconocimiento de voz:', event.error);
+                    micButton.classList.remove('listening');
+                    alert('Error en el reconocimiento de voz: ' + event.error);
+                };
+
+                recognition.onend = () => {
+                    micButton.classList.remove('listening');
+                    console.log('Reconocimiento de voz finalizado.');
+                };
+
+                // Función para procesar el comando de voz
+                function processVoiceCommand(command) {
+                    // Obtener todos los elementos del menú
+                    const menuItems = document.querySelectorAll('[data-menu-action]');
+                    let matchFound = false;
+
+                    // Buscar coincidencias con los comandos definidos en data-menu-action
+                    menuItems.forEach(item => {
+                        const menuAction = item.getAttribute('data-menu-action').toLowerCase();
+                        if (command.includes(menuAction)) {
+                            matchFound = true;
+                            const href = item.getAttribute('href');
+                            if (href && href !== '#') {
+                                console.log('Ejecutando acción:', menuAction, 'URL:', href);
+                                window.location.href = href;
+                            } else {
+                                alert('La opción no está disponible actualmente.');
+                            }
+                        }
+                    });
+
+                    // Comandos adicionales o genéricos
+                    if (!matchFound) {
+                        if (command.includes('dame el horario del profesor')) {
+                            // Extraer el nombre del profesor
+                            const professorName = command.replace('dame el horario del profesor', '').trim();
+                            const professorLinks = document.querySelectorAll('.professor-link');
+                            let professorFound = false;
+
+                            professorLinks.forEach(link => {
+                                const professorFullName = link.getAttribute('data-professor-name').toLowerCase();
+                                if (professorFullName.includes(professorName)) {
+                                    professorFound = true;
+                                    const href = link.getAttribute('href');
+                                    console.log('Horario del profesor encontrado:', professorFullName, 'URL:', href);
+                                    window.location.href = href;
+                                }
+                            });
+
+                            if (!professorFound) {
+                                alert('No se encontró el profesor: ' + professorName);
+                            }
+                        } else if (command.includes('dame las asignaciones del curso')) {
+                            // Extraer el nombre del curso
+                            const cursoName = command.replace('dame las asignaciones del curso', '').trim();
+                            const cursoLinks = document.querySelectorAll('.curso-link');
+                            let cursoFound = false;
+
+                            cursoLinks.forEach(link => {
+                                const cursoFullName = link.getAttribute('data-curso-name').toLowerCase();
+                                if (cursoFullName.includes(cursoName)) {
+                                    cursoFound = true;
+                                    const href = link.getAttribute('href');
+                                    console.log('Asignaciones del curso encontrado:', cursoFullName, 'URL:', href);
+                                    window.location.href = href;
+                                }
+                            });
+
+                            if (!cursoFound) {
+                                alert('No se encontró el curso: ' + cursoName);
+                            }
+                        } else {
+                            alert('Comando no reconocido: ' + command);
+                        }
+                    }
+                }
+            } else {
+                micButton.style.display = 'none'; // Ocultar el micrófono si el navegador no soporta SpeechRecognition
+                console.log('Reconocimiento de voz no soportado en este navegador.');
+            }
         });
     </script>
-    {% endif %}
     <div class="container mt-4">
-        {% block content %}{% endblock %}
+        {% block content %}
+        {% endblock %}
     </div>
+    <!-- Bloque para scripts adicionales -->
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

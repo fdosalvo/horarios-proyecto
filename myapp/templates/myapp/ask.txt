@@ -1,1 +1,1534 @@
-Preguntas:
+
+
+
+
+https://grok.com/chat/baa323df-48bc-48ec-9485-77dcdc3134cb
+
+
+Al cargar reportes.html no logro visualizar los graficos.
+
+reportes/:165 Uncaught SyntaxError: Unexpected token ';'Understand this error
+reportes/:180 Uncaught ReferenceError: barLabels is not defined
+    at HTMLDocument.<anonymous> (reportes/:180:21)
+
+
+Adjunto plantilla y vista.    
+
+
+
+reportes.html
+
+{% extends "myapp/base.html" %}
+{% block title %}Reportes{% endblock %}
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Dashboard de Ingresos</h1>
+
+    <!-- Formulario de filtro -->
+    <form method="GET" class="mb-4">
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="filtro" id="todos" value="todos" {% if filtro == 'todos' %}checked{% endif %}>
+            <label class="form-check-label" for="todos">Todos los datos</label>
+        </div>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="filtro" id="hasta_mes_actual" value="hasta_mes_actual" {% if filtro == 'hasta_mes_actual' %}checked{% endif %}>
+            <label class="form-check-label" for="hasta_mes_actual">Hasta el mes actual</label>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Aplicar</button>
+    </form>
+
+    <!-- Gráficos -->
+    <div class="row">
+        <!-- Gráfico de barras -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">Pendientes y Atrasados por Mes</div>
+                <div class="card-body">
+                    <canvas id="barChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Gráfico de torta -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">Distribución de Estados</div>
+                <div class="card-body">
+                    <canvas id="pieChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Gráfico de línea -->
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header">Proyección de Ingresos Futuros</div>
+                <div class="card-body">
+                    <canvas id="lineChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Incluir Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- Variables de datos -->
+<script>
+    const barLabels = {{ bar_labels|safe }};
+    const barPendiente = {{ bar_pendiente|safe }};
+    const barAtrasado = {{ bar_atrasado|safe }};
+    const pieData = {{ pie_data|safe }};
+    const lineLabels = {{ line_labels|safe }};
+    const lineMontos = {{ line_montos|safe }};
+</script>
+<!-- Gráficos -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Gráfico de barras
+    const barCtx = document.getElementById('barChart').getContext('2d');
+    new Chart(barCtx, {
+        type: 'bar',
+        data: {
+            labels: barLabels,
+            datasets: [
+                {
+                    label: 'Pendiente',
+                    data: barPendiente,
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Atrasado',
+                    data: barAtrasado,
+                    backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            scales: {
+                y: { beginAtZero: true, title: { display: true, text: 'Monto ($)' } },
+                x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } }
+            },
+            plugins: { legend: { position: 'top' } }
+        }
+    });
+
+    // Gráfico de torta
+    const pieCtx = document.getElementById('pieChart').getContext('2d');
+    new Chart(pieCtx, {
+        type: 'pie',
+        data: {
+            labels: pieData.labels,
+            datasets: [{
+                data: pieData.values,
+                backgroundColor: [
+                    'rgba(75, 192, 192, 0.5)',
+                    'rgba(54, 162, 235, 0.5)',
+                    'rgba(255, 99, 132, 0.5)'
+                ],
+                borderColor: [
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(255, 99, 132, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            plugins: { legend: { position: 'top' } }
+        }
+    });
+
+    // Gráfico de línea
+    const lineCtx = document.getElementById('lineChart').getContext('2d');
+    new Chart(lineCtx, {
+        type: 'line',
+        data: {
+            labels: lineLabels,
+            datasets: [{
+                label: 'Ingresos Esperados',
+                data: lineMontos,
+                fill: false,
+                borderColor: 'rgba(75, 192, 192, 1)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            scales: {
+                y: { beginAtZero: true, title: { display: true, text: 'Monto ($)' } }
+            },
+            plugins: { legend: { position: 'top' } }
+        }
+    });
+});
+</script>
+{% endblock %}
+
+
+views.py 
+# myapp/views.py
+from django.shortcuts import render, redirect
+from .models import (
+    Profesor, DiaSemana, Asignacion, Curso, Materia, Apoderado, RangoNoDisponible,
+    ProfesorHorario, Mensualidad, AnioEscolar, Alumno, Descuento
+)
+from datetime import time, datetime, timedelta
+from django import forms
+import logging
+from django.http import HttpResponse, JsonResponse
+from django.template.loader import render_to_string
+from django.utils import timezone
+from calendar import monthrange
+import json
+from decimal import Decimal
+from django.db.models import Sum
+from django.db.models.functions import TruncMonth
+from django.contrib import messages
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import inch
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
+
+
+
+# Configuración del logger
+logger = logging.getLogger(__name__)
+
+# Formulario para Asignacion
+class AsignacionForm(forms.Form):
+    profesor = forms.ModelChoiceField(queryset=Profesor.objects.all(), label="Profesor")
+    materia = forms.ModelChoiceField(queryset=Materia.objects.all(), label="Materia")
+    curso = forms.ModelChoiceField(queryset=Curso.objects.all(), label="Curso")
+    dia = forms.ModelChoiceField(queryset=DiaSemana.objects.none(), label="Día")
+    hora_inicio = forms.CharField(max_length=5, label="Hora Inicio")
+    hora_fin = forms.CharField(max_length=5, label="Hora Fin")
+    selected_slots = forms.CharField(required=False, widget=forms.HiddenInput)
+
+    def __init__(self, *args, **kwargs):
+        available_days = kwargs.pop('available_days', DiaSemana.objects.none())
+        super().__init__(*args, **kwargs)
+        self.fields['dia'].queryset = available_days
+
+# Funciones auxiliares
+def time_to_minutes(t):
+    return t.hour * 60 + t.minute
+
+def merge_intervals(intervals):
+    if not intervals:
+        return []
+    sorted_intervals = sorted(intervals, key=lambda x: x[0])
+    merged = [sorted_intervals[0]]
+    for current in sorted_intervals[1:]:
+        last = merged[-1]
+        if current[0] <= last[1]:
+            merged[-1] = (last[0], max(last[1], current[1]))
+        else:
+            merged.append(current)
+    return merged
+
+def calculate_available(total_start, total_end, assigned):
+    available = []
+    if not assigned:
+        return [(total_start, total_end)]
+    if total_start < assigned[0][0]:
+        available.append((total_start, assigned[0][0]))
+    for i in range(len(assigned)-1):
+        current_end = assigned[i][1]
+        next_start = assigned[i+1][0]
+        if current_end < next_start:
+            available.append((current_end, next_start))
+    last_end = assigned[-1][1]
+    if last_end < total_end:
+        available.append((last_end, total_end))
+    return available
+
+def min_to_time(mins):
+    hours, remainder = divmod(mins, 60)
+    return time(hours, remainder)
+
+def intersect_intervals(intervals1, intervals2):
+    result = []
+    i = j = 0
+    while i < len(intervals1) and j < len(intervals2):
+        start = max(intervals1[i][0], intervals2[j][0])
+        end = min(intervals1[i][1], intervals2[j][1])
+        if start < end:
+            result.append((start, end))
+        if intervals1[i][1] < intervals2[j][1]:
+            i += 1
+        else:
+            j += 1
+    return result
+
+def get_common_context():
+    all_professors = Profesor.objects.all()
+    all_cursos = Curso.objects.all()
+    logger.debug(f"Profesores cargados: {[p.id for p in all_professors]}")
+    logger.debug(f"Cursos cargados: {[c.id for c in all_cursos]}")
+    return {
+        'all_professors': all_professors,
+        'all_cursos': all_cursos,
+    }
+
+# Vistas
+@login_required(login_url='/accounts/login/')
+def index(request):
+    context = get_common_context()
+    return render(request, 'myapp/index.html', context)
+
+@login_required(login_url='/accounts/login/')
+def professor_schedule(request, professor_id):
+    try:
+        professor = Profesor.objects.get(id=professor_id)
+    except Profesor.DoesNotExist:
+        return render(request, 'myapp/404.html', status=404)
+
+    days = DiaSemana.objects.all()
+    schedule_data = {}
+    
+    total_start_time = time(8, 0)
+    total_end_time = time(23, 0)
+    
+    intervals = []
+    current_time = total_start_time
+    while current_time <= total_end_time:
+        intervals.append(current_time)
+        current_time = (datetime.combine(datetime.today(), current_time) + timedelta(minutes=15)).time()
+    
+    for day in days:
+        assignments = Asignacion.objects.filter(profesor=professor, dia=day)
+        no_disponibles = RangoNoDisponible.objects.filter(dia=day)
+        
+        assigned_display = [
+            (asig.hora_inicio, asig.hora_fin, f"{asig.materia.nombre} ({asig.curso.nombre})", time_to_minutes(asig.hora_fin) - time_to_minutes(asig.hora_inicio))
+            for asig in assignments
+        ]
+        
+        slots = []
+        for i, slot_time in enumerate(intervals):
+            assignment = False
+            for start, end, _, _ in assigned_display:
+                start_min = time_to_minutes(start)
+                end_min = time_to_minutes(end)
+                slot_min = time_to_minutes(slot_time)
+                if start_min <= slot_min <= end_min:
+                    assignment = True
+                    break
+            
+            no_disponible = False
+            for r in no_disponibles:
+                start_min = time_to_minutes(r.hora_inicio)
+                end_min = time_to_minutes(r.hora_fin)
+                slot_min = time_to_minutes(slot_time)
+                if start_min <= slot_min <= end_min:
+                    no_disponible = True
+                    break
+            
+            slots.append((slot_time, assignment, no_disponible))
+        
+        assigned_intervals_for_merging = [(time_to_minutes(asig.hora_inicio), time_to_minutes(asig.hora_fin)) for asig in assignments]
+        no_disponible_intervals = [(time_to_minutes(r.hora_inicio), time_to_minutes(r.hora_fin)) for r in no_disponibles]
+        total_start_min = time_to_minutes(total_start_time)
+        total_end_min = time_to_minutes(total_end_time)
+        all_blocked_intervals = merge_intervals(assigned_intervals_for_merging + no_disponible_intervals)
+        available_intervals_minutes = calculate_available(total_start_min, total_end_min, all_blocked_intervals)
+        available_display = [(min_to_time(start), min_to_time(end)) for start, end in available_intervals_minutes]
+        
+        schedule_data[day.nombre] = {
+            'slots': slots,
+            'assigned': assigned_display,
+            'available': available_display,
+        }
+    
+    context = get_common_context()
+    context.update({
+        'professor': professor,
+        'schedule_data': schedule_data,
+    })
+    return render(request, 'myapp/schedule.html', context)
+
+@login_required(login_url='/accounts/login/')
+def curso_schedule(request, curso_id):
+    try:
+        curso = Curso.objects.get(id=curso_id)
+    except Curso.DoesNotExist:
+        return render(request, 'myapp/404.html', status=404)
+
+    days = DiaSemana.objects.all()
+    schedule_data = {}
+    
+    total_start_time = time(8, 0)
+    total_end_time = time(23, 0)
+    
+    intervals = []
+    current_time = total_start_time
+    while current_time <= total_end_time:
+        intervals.append(current_time)
+        current_time = (datetime.combine(datetime.today(), current_time) + timedelta(minutes=15)).time()
+    
+    for day in days:
+        assignments = Asignacion.objects.filter(curso=curso, dia=day)
+        no_disponibles = RangoNoDisponible.objects.filter(dia=day)
+        
+        slots = []
+        for i, slot_time in enumerate(intervals):
+            prof_materia = None
+            for asig in assignments:
+                start_min = time_to_minutes(asig.hora_inicio)
+                end_min = time_to_minutes(asig.hora_fin)
+                slot_min = time_to_minutes(slot_time)
+                if start_min <= slot_min <= end_min:
+                    prof_materia = f"{asig.profesor.nombre}/{asig.materia.nombre}"
+                    break
+            
+            no_disponible = False
+            for r in no_disponibles:
+                start_min = time_to_minutes(r.hora_inicio)
+                end_min = time_to_minutes(r.hora_fin)
+                slot_min = time_to_minutes(slot_time)
+                if start_min <= slot_min <= end_min:
+                    no_disponible = True
+                    break
+            
+            slots.append((slot_time, prof_materia, no_disponible))
+        
+        schedule_data[day.nombre] = {
+            'slots': slots,
+        }
+    
+    context = get_common_context()
+    context.update({
+        'curso': curso,
+        'schedule_data': schedule_data,
+    })
+    return render(request, 'myapp/cursos_scheduler.html', context)
+
+@login_required(login_url='/accounts/login/')
+def generate_curso_pdf(request, curso_id):
+    try:
+        curso = Curso.objects.get(id=curso_id)
+    except Curso.DoesNotExist:
+        return HttpResponse("Curso no encontrado.", status=404)
+
+    days = DiaSemana.objects.all()
+    schedule_data = {}
+    
+    total_start_time = time(8, 0)
+    total_end_time = time(23, 0)
+    
+    intervals = []
+    current_time = total_start_time
+    while current_time <= total_end_time:
+        intervals.append(current_time)
+        current_time = (datetime.combine(datetime.today(), current_time) + timedelta(minutes=15)).time()
+    
+    for day in days:
+        assignments = Asignacion.objects.filter(curso=curso, dia=day)
+        no_disponibles = RangoNoDisponible.objects.filter(dia=day)
+        prof_materia_slots = {}
+        no_disponible_slots = [False] * len(intervals)
+        for asig in assignments:
+            key = f"{asig.profesor.nombre}/{asig.materia.nombre}"
+            if key not in prof_materia_slots:
+                prof_materia_slots[key] = [False] * len(intervals)
+            start_min = time_to_minutes(asig.hora_inicio)
+            end_min = time_to_minutes(asig.hora_fin)
+            for i, slot_time in enumerate(intervals):
+                slot_min = time_to_minutes(slot_time)
+                if start_min <= slot_min <= end_min:
+                    prof_materia_slots[key][i] = True
+        for r in no_disponibles:
+            start_min = time_to_minutes(r.hora_inicio)
+            end_min = time_to_minutes(r.hora_fin)
+            for i, slot_time in enumerate(intervals):
+                slot_min = time_to_minutes(slot_time)
+                if start_min <= slot_min <= end_min:
+                    no_disponible_slots[i] = True
+        
+        schedule_data[day.nombre] = {
+            'prof_materia_slots': prof_materia_slots,
+            'intervals': intervals,
+            'no_disponible_slots': no_disponible_slots,
+        }
+    
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="horario_curso_{curso.nombre}.pdf"'
+    
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    
+    p.setFont("Helvetica-Bold", 16)
+    p.drawString(1 * inch, height - 1 * inch, f"Horario de {curso.nombre}")
+    
+    y = height - 1.5 * inch
+    
+    for day, data in schedule_data.items():
+        p.setFont("Helvetica-Bold", 12)
+        p.drawString(1 * inch, y, day)
+        y -= 0.5 * inch
+        
+        p.setFont("Helvetica", 10)
+        p.drawString(1 * inch, y, "Horario")
+        p.drawString(3 * inch, y, "Profesor/Materia")
+        y -= 0.3 * inch
+        
+        p.line(1 * inch, y, width - 1 * inch, y)
+        y -= 0.2 * inch
+        
+        p.setFont("Helvetica", 9)
+        for i in range(len(data['intervals'])):
+            slot_time = data['intervals'][i]
+            if y < 1 * inch:
+                p.showPage()
+                y = height - 1 * inch
+                p.setFont("Helvetica", 9)
+            
+            p.drawString(1 * inch, y, slot_time.strftime('%H:%M'))
+            
+            text = ""
+            for prof_materia, slots in data['prof_materia_slots'].items():
+                if slots[i]:
+                    text = prof_materia
+                    break
+            if data['no_disponible_slots'][i]:
+                text = "No disponible"
+            p.drawString(3 * inch, y, text)
+            
+            y -= 0.3 * inch
+        
+        y -= 0.5 * inch
+    
+    p.showPage()
+    p.save()
+    return response
+
+
+@login_required(login_url='/accounts/login/')
+def cargar_asignacion(request):
+    total_start_time = time(8, 0)
+    total_end_time = time(23, 0)
+
+    all_intervals = []
+    current_time = total_start_time
+    while current_time <= total_end_time:
+        all_intervals.append(current_time)
+        current_time = (datetime.combine(datetime.today(), current_time) + timedelta(minutes=15)).time()
+
+    profesor_id = request.POST.get('profesor', None) if request.method == 'POST' else None
+    curso_id = request.POST.get('curso', None) if request.method == 'POST' else None
+    dia_id = request.POST.get('dia', None) if request.method == 'POST' else None
+
+    available_days = DiaSemana.objects.all()
+    blocked_times = []
+    assigned_slots = []
+    available_slots = []
+    error_message = None
+    remaining_horas = None
+
+    materias = Materia.objects.all()
+    dias = DiaSemana.objects.all()
+
+    if dia_id:
+        try:
+            dia = DiaSemana.objects.get(id=dia_id)
+            no_disponibles = RangoNoDisponible.objects.filter(dia=dia)
+            for r in no_disponibles:
+                current = r.hora_inicio
+                while current < r.hora_fin:
+                    blocked_times.append(current.strftime('%H:%M'))
+                    current = (datetime.combine(datetime.today(), current) + timedelta(minutes=15)).time()
+        except DiaSemana.DoesNotExist:
+            error_message = "Día no encontrado."
+
+    if profesor_id is not None:
+        try:
+            profesor = Profesor.objects.get(id=profesor_id)
+            horarios = ProfesorHorario.objects.filter(profesor=profesor)
+            available_days_ids = []
+            for horario in horarios:
+                dia = horario.dia
+                limite_horas = horario.horas
+                asignaciones = Asignacion.objects.filter(profesor=profesor, dia=dia)
+                total_asignado = sum(
+                    (time_to_minutes(asig.hora_fin) - time_to_minutes(asig.hora_inicio))
+                    for asig in asignaciones
+                )
+                if total_asignado < limite_horas:
+                    available_days_ids.append(dia.id)
+            available_days = DiaSemana.objects.filter(id__in=available_days_ids)
+        except Profesor.DoesNotExist:
+            available_days = DiaSemana.objects.none()
+            error_message = "Profesor no encontrado."
+
+    if profesor_id is not None and curso_id is not None and dia_id is not None:
+        try:
+            profesor = Profesor.objects.get(id=profesor_id)
+            curso = Curso.objects.get(id=curso_id)
+            dia = DiaSemana.objects.get(id=dia_id)
+
+            try:
+                horario = ProfesorHorario.objects.get(profesor=profesor, dia=dia)
+                limite_horas = horario.horas
+            except ProfesorHorario.DoesNotExist:
+                limite_horas = 0
+                error_message = f"No se ha definido un límite de horas para {profesor.nombre} en {dia.nombre}."
+
+            asignaciones = Asignacion.objects.filter(profesor=profesor, dia=dia)
+            total_asignado = sum(
+                (time_to_minutes(asig.hora_fin) - time_to_minutes(asig.hora_inicio))
+                for asig in asignaciones
+            )
+            remaining_horas = max(0, limite_horas - total_asignado)
+
+            if remaining_horas <= 0:
+                error_message = f"No hay horas disponibles para {profesor.nombre} en {dia.nombre} (límite alcanzado)."
+            else:
+                profesor_assignments = Asignacion.objects.filter(profesor=profesor, dia=dia)
+                profesor_assigned_intervals = [(time_to_minutes(asig.hora_inicio), time_to_minutes(asig.hora_fin)) for asig in profesor_assignments]
+                curso_assignments = Asignacion.objects.filter(curso=curso, dia=dia).exclude(profesor=profesor)
+                curso_assigned_intervals = [(time_to_minutes(asig.hora_inicio), time_to_minutes(asig.hora_fin)) for asig in curso_assignments]
+                no_disponibles = RangoNoDisponible.objects.filter(dia=dia)
+                no_disponible_intervals = [(time_to_minutes(r.hora_inicio), time_to_minutes(r.hora_fin)) for r in no_disponibles]
+
+                profesor_merged_assigned = merge_intervals(profesor_assigned_intervals)
+                curso_merged_assigned = merge_intervals(curso_assigned_intervals)
+                no_disponible_merged = merge_intervals(no_disponible_intervals)
+
+                total_start_min = time_to_minutes(total_start_time)
+                total_end_min = time_to_minutes(total_end_time)
+                profesor_available_intervals = calculate_available(total_start_min, total_end_min, profesor_merged_assigned)
+                curso_available_intervals = calculate_available(total_start_min, total_end_min, curso_merged_assigned)
+                no_disponible_available_intervals = calculate_available(total_start_min, total_end_min, no_disponible_merged)
+
+                final_available_intervals = intersect_intervals(
+                    intersect_intervals(profesor_available_intervals, curso_available_intervals),
+                    no_disponible_available_intervals
+                )
+
+                for start_min, end_min in final_available_intervals:
+                    current_min = start_min
+                    while current_min < end_min:
+                        available_slots.append(min_to_time(current_min).strftime('%H:%M'))
+                        current_min += 15
+
+                for asig in profesor_assignments:
+                    current = asig.hora_inicio
+                    while current < asig.hora_fin:
+                        time_str = current.strftime('%H:%M')
+                        assigned_slots.append({
+                            'time': time_str,
+                            'description': f"{asig.materia.nombre} ({asig.curso.nombre})"
+                        })
+                        current = (datetime.combine(datetime.today(), current) + timedelta(minutes=15)).time()
+        except (Profesor.DoesNotExist, Curso.DoesNotExist, DiaSemana.DoesNotExist) as e:
+            error_message = f"Datos no encontrados: {str(e)}"
+
+    form = AsignacionForm(
+        request.POST if request.method == 'POST' else None,
+        available_days=available_days
+    )
+
+    if request.method == 'POST' and form.is_valid():
+        selected_slots = form.cleaned_data.get('selected_slots')
+        if selected_slots:
+            slots = json.loads(selected_slots)
+            if slots:
+                start_time_str = slots[0]
+                end_time_str = slots[-1]
+                start_hour, start_minute = map(int, start_time_str.split(':'))
+                end_hour, end_minute = map(int, end_time_str.split(':'))
+                # No sumar 15 minutos adicionales; usar directamente el último slot
+                Asignacion.objects.create(
+                    profesor=form.cleaned_data['profesor'],
+                    materia=form.cleaned_data['materia'],
+                    curso=form.cleaned_data['curso'],
+                    dia=form.cleaned_data['dia'],
+                    hora_inicio=time(start_hour, start_minute),
+                    hora_fin=time(end_hour, end_minute),  # Usar directamente el valor de end_time_str
+                    anio_escolar=form.cleaned_data['curso'].anio_escolar
+                )
+                messages.success(request, "Asignación creada con éxito.")
+                # Reiniciar variables para una nueva asignación
+                blocked_times = []
+                assigned_slots = []
+                available_slots = []
+                remaining_horas = None
+                error_message = None
+                form = AsignacionForm(available_days=available_days)
+            else:
+                error_message = "No se seleccionaron slots."
+        else:
+            error_message = "No se seleccionaron slots."
+
+    context = get_common_context()
+    context.update({
+        'form': form,
+        'blocked_times': blocked_times,
+        'assigned_slots': assigned_slots,
+        'available_slots': available_slots,
+        'error_message': error_message,
+        'remaining_horas': remaining_horas,
+        'materias': materias,
+        'dias': dias,
+    })
+    return render(request, 'myapp/cargar_asignacion.html', context)
+
+@login_required(login_url='/accounts/login/')
+def get_schedule_data(request):
+    profesor_id = request.GET.get('profesor_id')
+    curso_id = request.GET.get('curso_id')
+    dia_id = request.GET.get('dia_id')
+
+    if not all([profesor_id, curso_id, dia_id]):
+        return JsonResponse({'error': 'Faltan parámetros'}, status=400)
+
+    try:
+        profesor = Profesor.objects.get(id=profesor_id)
+        curso = Curso.objects.get(id=curso_id)
+        dia = DiaSemana.objects.get(id=dia_id)
+    except (Profesor.DoesNotExist, Curso.DoesNotExist, DiaSemana.DoesNotExist):
+        return JsonResponse({'error': 'Datos no encontrados'}, status=404)
+
+    total_start_time = time(8, 0)
+    total_end_time = time(23, 0)
+
+    all_intervals = []
+    current_time = total_start_time
+    while current_time <= total_end_time:
+        all_intervals.append(current_time)
+        current_time = (datetime.combine(datetime.today(), current_time) + timedelta(minutes=15)).time()
+
+    blocked_times = []
+    assigned_slots = []
+    available_slots = []
+    remaining_horas = None
+
+    no_disponibles = RangoNoDisponible.objects.filter(dia=dia)
+    for r in no_disponibles:
+        current = r.hora_inicio
+        while current < r.hora_fin:
+            blocked_times.append(current.strftime('%H:%M'))
+            current = (datetime.combine(datetime.today(), current) + timedelta(minutes=15)).time()
+
+    try:
+        horario = ProfesorHorario.objects.get(profesor=profesor, dia=dia)
+        limite_horas = horario.horas
+    except ProfesorHorario.DoesNotExist:
+        limite_horas = 0
+
+    asignaciones = Asignacion.objects.filter(profesor=profesor, dia=dia)
+    total_asignado = sum(
+        (time_to_minutes(asig.hora_fin) - time_to_minutes(asig.hora_inicio))
+        for asig in asignaciones
+    )
+    remaining_horas = max(0, limite_horas - total_asignado)
+
+    if remaining_horas > 0:
+        profesor_assignments = Asignacion.objects.filter(profesor=profesor, dia=dia)
+        profesor_assigned_intervals = [(time_to_minutes(asig.hora_inicio), time_to_minutes(asig.hora_fin)) for asig in profesor_assignments]
+        curso_assignments = Asignacion.objects.filter(curso=curso, dia=dia).exclude(profesor=profesor)
+        curso_assigned_intervals = [(time_to_minutes(asig.hora_inicio), time_to_minutes(asig.hora_fin)) for asig in curso_assignments]
+        no_disponible_intervals = [(time_to_minutes(r.hora_inicio), time_to_minutes(r.hora_fin)) for r in no_disponibles]
+
+        profesor_merged_assigned = merge_intervals(profesor_assigned_intervals)
+        curso_merged_assigned = merge_intervals(curso_assigned_intervals)
+        no_disponible_merged = merge_intervals(no_disponible_intervals)
+
+        total_start_min = time_to_minutes(total_start_time)
+        total_end_min = time_to_minutes(total_end_time)
+        profesor_available_intervals = calculate_available(total_start_min, total_end_min, profesor_merged_assigned)
+        curso_available_intervals = calculate_available(total_start_min, total_end_min, curso_merged_assigned)
+        no_disponible_available_intervals = calculate_available(total_start_min, total_end_min, no_disponible_merged)
+
+        final_available_intervals = intersect_intervals(
+            intersect_intervals(profesor_available_intervals, curso_available_intervals),
+            no_disponible_available_intervals
+        )
+
+        for start_min, end_min in final_available_intervals:
+            current_min = start_min
+            while current_min < end_min:
+                available_slots.append(min_to_time(current_min).strftime('%H:%M'))
+                current_min += 15
+
+        for asig in profesor_assignments:
+            current = asig.hora_inicio
+            while current < asig.hora_fin:
+                time_str = current.strftime('%H:%M')
+                assigned_slots.append({
+                    'time': time_str,
+                    'description': f"{asig.materia.nombre} ({asig.curso.nombre})"
+                })
+                current = (datetime.combine(datetime.today(), current) + timedelta(minutes=15)).time()
+
+    return JsonResponse({
+        'blocked_times': blocked_times,
+        'assigned_slots': assigned_slots,
+        'available_slots': available_slots,
+        'remaining_horas': remaining_horas,
+    })
+
+@login_required(login_url='/accounts/login/')
+def ingresos(request):
+    apoderados = Apoderado.objects.all()
+    apoderados_data = []
+    today = timezone.now().date()
+
+    for apoderado in apoderados:
+        mensualidades = apoderado.mensualidades.all()
+        total_pendiente = mensualidades.filter(estado='pendiente').aggregate(Sum('monto'))['monto__sum'] or Decimal('0')
+        total_pagado = mensualidades.filter(estado='pagado').aggregate(Sum('monto'))['monto__sum'] or Decimal('0')
+        total_atrasado = mensualidades.filter(estado='pendiente', fecha_vencimiento__lt=today).aggregate(Sum('monto'))['monto__sum'] or Decimal('0')
+
+        apoderados_data.append({
+            'apoderado': apoderado,
+            'total_pendiente': total_pendiente,
+            'total_atrasado': total_atrasado,
+            'total_cancelado': total_pagado,
+        })
+
+    return render(request, 'myapp/ingresos.html', {'apoderados_data': apoderados_data})
+
+@login_required(login_url='/accounts/login/')
+def ingresos_details(request, apoderado_id):
+    try:
+        apoderado = Apoderado.objects.get(id=apoderado_id)
+    except Apoderado.DoesNotExist:
+        return JsonResponse({'error': 'Apoderado no encontrado'}, status=404)
+
+    alumnos = apoderado.alumnos.all()
+    mensualidades = apoderado.mensualidades.all()
+    today = timezone.now().date()
+
+    total_pendiente = mensualidades.filter(estado='pendiente').aggregate(Sum('monto'))['monto__sum'] or Decimal('0')
+    total_pagado = mensualidades.filter(estado='pagado').aggregate(Sum('monto'))['monto__sum'] or Decimal('0')
+    total_atrasado = mensualidades.filter(estado='pendiente', fecha_vencimiento__lt=today).aggregate(Sum('monto'))['monto__sum'] or Decimal('0')
+
+    pie_data = {
+        'labels': ['Pendiente', 'Atrasado', 'Pagado'],
+        'values': [float(total_pendiente), float(total_atrasado), float(total_pagado)]
+    }
+
+    html = render_to_string('myapp/ingresos_details.html', {
+        'apoderado': apoderado,
+        'alumnos': alumnos,
+        'mensualidades': mensualidades,
+        'total_pendiente': total_pendiente,
+        'total_atrasado': total_atrasado,
+        'total_cancelado': total_pagado,
+        'pie_data': pie_data,
+    })
+
+    return JsonResponse({
+        'html': html,
+        'pie_data': pie_data,
+        'total_pendiente': float(total_pendiente),
+        'total_atrasado': float(total_atrasado),
+        'total_cancelado': float(total_pagado),
+    })
+
+@login_required(login_url='/accounts/login/')
+@require_POST
+def marcar_mensualidad_pagada(request):
+    mensualidad_id = request.POST.get('mensualidad_id')
+    metodo_pago = request.POST.get('metodo_pago')
+
+    if not all([mensualidad_id, metodo_pago]):
+        return JsonResponse({'success': False, 'error': 'Faltan parámetros'}, status=400)
+
+    try:
+        mensualidad = Mensualidad.objects.get(id=mensualidad_id)
+    except Mensualidad.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Mensualidad no encontrada'}, status=404)
+
+    if mensualidad.estado == 'pagado':
+        return JsonResponse({'success': False, 'error': 'La mensualidad ya está pagada'}, status=400)
+
+    mensualidad.estado = 'pagado'
+    mensualidad.fecha_pago = timezone.now().date()
+    mensualidad.metodo_pago = metodo_pago
+    mensualidad.save()
+
+    apoderado = mensualidad.apoderado
+    mensualidades = apoderado.mensualidades.all()
+    today = timezone.now().date()
+
+    total_pendiente = mensualidades.filter(estado='pendiente').aggregate(Sum('monto'))['monto__sum'] or Decimal('0')
+    total_pagado = mensualidades.filter(estado='pagado').aggregate(Sum('monto'))['monto__sum'] or Decimal('0')
+    total_atrasado = mensualidades.filter(estado='pendiente', fecha_vencimiento__lt=today).aggregate(Sum('monto'))['monto__sum'] or Decimal('0')
+
+    pie_data = {
+        'labels': ['Pendiente', 'Atrasado', 'Pagado'],
+        'values': [float(total_pendiente), float(total_atrasado), float(total_pagado)]
+    }
+
+    return JsonResponse({
+        'success': True,
+        'total_pendiente': float(total_pendiente),
+        'total_atrasado': float(total_atrasado),
+        'total_cancelado': float(total_pagado),
+        'pie_data': pie_data,
+    })
+
+@login_required(login_url='/accounts/login/')
+def reportes(request):
+    mensualidades = Mensualidad.objects.all()
+    today = timezone.now().date()
+
+    ingresos_por_mes = mensualidades.filter(estado='pagado').annotate(
+        mes=TruncMonth('fecha_pago')
+    ).values('mes').annotate(
+        total=Sum('monto')
+    ).order_by('mes')
+
+    morosidad_por_mes = mensualidades.filter(
+        estado='pendiente',
+        fecha_vencimiento__lt=today
+    ).annotate(
+        mes=TruncMonth('fecha_vencimiento')
+    ).values('mes').annotate(
+        total=Sum('monto')
+    ).order_by('mes')
+
+    return render(request, 'myapp/reportes.html', {
+        'ingresos_por_mes': ingresos_por_mes,
+        'morosidad_por_mes': morosidad_por_mes,
+    })
+
+@login_required(login_url='/accounts/login/')
+def apoderados(request):
+    anios_escolares = AnioEscolar.objects.all()
+    return render(request, 'myapp/apoderados.html', {'anios_escolares': anios_escolares})
+
+@login_required(login_url='/accounts/login/')
+def apoderados_data(request):
+    anio_escolar_id = request.GET.get('anio_escolar_id')
+    if anio_escolar_id:
+        apoderados = Apoderado.objects.filter(anio_escolar_id=anio_escolar_id)
+    else:
+        apoderados = Apoderado.objects.all()
+
+    data = [
+        {
+            'apoderado_id': apoderado.id,  # Necesario para construir URLs en el frontend
+            'nombre': apoderado.nombre,
+            'apellidop': apoderado.apellidop,
+            'apellidom': apoderado.apellidom,
+            'email': apoderado.email,
+            'telefono': apoderado.telefono if apoderado.telefono else '-',
+            'rut': apoderado.rut,
+            'arancel_anual': float(apoderado.arancel_anual),
+            'meses_pago': apoderado.meses_pago,
+            'cantidad_alumnos': apoderado.cantidad_alumnos,
+            'modalidad_pago': apoderado.get_modalidad_pago_display(),
+        }
+        for apoderado in apoderados
+    ]
+    return JsonResponse({'data': data})
+
+@login_required(login_url='/accounts/login/')
+@require_POST
+def apoderados_create(request):
+    try:
+        # Obtener los datos del formulario
+        nombre = request.POST.get('nombre')
+        apellidop = request.POST.get('apellidop')
+        apellidom = request.POST.get('apellidom')
+        email = request.POST.get('email')
+        telefono = request.POST.get('telefono', '')
+        rut = request.POST.get('rut')
+        arancel_anual = request.POST.get('arancel_anual')
+        meses_pago = request.POST.get('meses_pago')
+        cantidad_alumnos = request.POST.get('cantidad_alumnos')
+        fecha_inicio = request.POST.get('fecha_inicio')
+        anio_escolar_id = request.POST.get('anio_escolar')
+        modalidad_pago = request.POST.get('modalidad_pago')
+
+        # Validaciones básicas
+        if not all([nombre, apellidop, apellidom, email, rut, arancel_anual, meses_pago, cantidad_alumnos, anio_escolar_id, modalidad_pago]):
+            return JsonResponse({'success': False, 'error': 'Faltan campos obligatorios'}, status=400)
+
+        # Validar y convertir datos
+        try:
+            arancel_anual = Decimal(arancel_anual)
+            meses_pago = int(meses_pago)
+            cantidad_alumnos = int(cantidad_alumnos)
+            anio_escolar = AnioEscolar.objects.get(id=anio_escolar_id)
+        except (ValueError, AnioEscolar.DoesNotExist):
+            return JsonResponse({'success': False, 'error': 'Datos inválidos'}, status=400)
+
+        # Validar fecha_inicio si está presente
+        if fecha_inicio:
+            try:
+                fecha_inicio = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({'success': False, 'error': 'Formato de fecha inválido'}, status=400)
+        else:
+            fecha_inicio = None
+
+        # Verificar unicidad de email y rut
+        if Apoderado.objects.filter(email=email).exists():
+            return JsonResponse({'success': False, 'error': 'El email ya está registrado'}, status=400)
+        if Apoderado.objects.filter(rut=rut).exists():
+            return JsonResponse({'success': False, 'error': 'El RUT ya está registrado'}, status=400)
+
+        # Crear el apoderado y las mensualidades asociadas
+        apoderado = Apoderado.objects.create(
+            nombre=nombre,
+            apellidop=apellidop,
+            apellidom=apellidom,
+            email=email,
+            telefono=telefono,
+            rut=rut,
+            arancel_anual=arancel_anual,
+            meses_pago=meses_pago,
+            cantidad_alumnos=cantidad_alumnos,
+            fecha_inicio=fecha_inicio,
+            anio_escolar=anio_escolar,
+            modalidad_pago=modalidad_pago
+        )
+
+        # Crear mensualidades
+        monto_mensual = (arancel_anual * cantidad_alumnos) / meses_pago
+        fecha_inicio = apoderado.fecha_inicio or datetime.today().date()
+        for i in range(meses_pago):
+            fecha_vencimiento = fecha_inicio + timedelta(days=30 * i)
+            Mensualidad.objects.create(
+                apoderado=apoderado,
+                monto=monto_mensual,
+                fecha_vencimiento=fecha_vencimiento,
+                estado='pendiente',
+            )
+
+        # Retornar los datos del apoderado creado para añadir a la grilla
+        return JsonResponse({
+            'success': True,
+            'apoderado': {
+                'apoderado_id': apoderado.id,
+                'nombre': apoderado.nombre,
+                'apellidop': apoderado.apellidop,
+                'apellidom': apoderado.apellidom,
+                'email': apoderado.email,
+                'telefono': apoderado.telefono if apoderado.telefono else '-',
+                'rut': apoderado.rut,
+                'arancel_anual': float(apoderado.arancel_anual),
+                'meses_pago': apoderado.meses_pago,
+                'cantidad_alumnos': apoderado.cantidad_alumnos,
+                'modalidad_pago': apoderado.get_modalidad_pago_display(),
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@login_required(login_url='/accounts/login/')
+def alumnos(request, apoderado_id):
+    try:
+        apoderado = Apoderado.objects.get(id=apoderado_id)
+    except Apoderado.DoesNotExist:
+        return render(request, 'myapp/404.html', status=404)
+
+    anios_escolares = AnioEscolar.objects.all()
+    return render(request, 'myapp/alumnos.html', {
+        'apoderado': apoderado,
+        'anios_escolares': anios_escolares,
+    })
+
+@login_required(login_url='/accounts/login/')
+def alumnos_data(request, apoderado_id):
+    try:
+        apoderado = Apoderado.objects.get(id=apoderado_id)
+    except Apoderado.DoesNotExist:
+        return JsonResponse({'data': []})
+
+    alumnos = apoderado.alumnos.all()
+    data = [
+        {
+            'nombre': alumno.nombre,
+            'apellidop': alumno.apellidop,
+            'apellidom': alumno.apellidom,
+            'email': alumno.email if alumno.email else '-',
+            'fecha_nacimiento': alumno.fecha_nacimiento.strftime('%Y-%m-%d'),
+            'sexo': alumno.get_sexo_display(),
+            'curso': alumno.curso.nombre if alumno.curso else '-',
+            'anio_escolar': str(alumno.anio_escolar.anio),  # Ajustado
+        }
+        for alumno in alumnos
+    ]
+    return JsonResponse({'data': data})
+
+@login_required(login_url='/accounts/login/')
+def get_cursos_por_anio(request):
+    anio_escolar_id = request.GET.get('anio_escolar_id')
+    if not anio_escolar_id:
+        return JsonResponse({'cursos': []})
+
+    try:
+        anio_escolar = AnioEscolar.objects.get(id=anio_escolar_id)
+        cursos = Curso.objects.filter(anio_escolar=anio_escolar)
+        cursos_data = [{'id': curso.id, 'nombre': curso.nombre} for curso in cursos]
+        return JsonResponse({'cursos': cursos_data})
+    except AnioEscolar.DoesNotExist:
+        return JsonResponse({'cursos': []})
+
+@login_required(login_url='/accounts/login/')
+@require_POST
+def alumnos_create(request, apoderado_id):
+    try:
+        apoderado = Apoderado.objects.get(id=apoderado_id)
+    except Apoderado.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Apoderado no encontrado'}, status=404)
+
+    try:
+        nombre = request.POST.get('nombre')
+        apellidop = request.POST.get('apellidop')
+        apellidom = request.POST.get('apellidom')
+        email = request.POST.get('email', '')
+        fecha_nacimiento = request.POST.get('fecha_nacimiento')
+        sexo = request.POST.get('sexo')
+        curso_id = request.POST.get('curso')
+        anio_escolar_id = request.POST.get('anio_escolar')
+
+        if not all([nombre, apellidop, apellidom, fecha_nacimiento, sexo, curso_id, anio_escolar_id]):
+            return JsonResponse({'success': False, 'error': 'Faltan campos obligatorios'}, status=400)
+
+        fecha_nacimiento = datetime.strptime(fecha_nacimiento, '%Y-%m-%d').date()
+        curso = Curso.objects.get(id=curso_id)
+        anio_escolar = AnioEscolar.objects.get(id=anio_escolar_id)
+        
+
+        if email and Alumno.objects.filter(email=email).exclude(apoderado=apoderado).exists():
+            return JsonResponse({'success': False, 'error': 'El email ya está registrado'}, status=400)
+
+        alumno = Alumno.objects.create(
+            nombre=nombre,
+            apellidop=apellidop,
+            apellidom=apellidom,
+            email=email if email else None,
+            fecha_nacimiento=fecha_nacimiento,
+            sexo=sexo,
+            apoderado=apoderado,
+            curso=curso,
+            anio_escolar=anio_escolar,
+        )
+
+        return JsonResponse({
+            'success': True,
+            'alumno': {
+                'nombre': alumno.nombre,
+                'apellidop': alumno.apellidop,
+                'apellidom': alumno.apellidom,
+                'email': alumno.email if alumno.email else '-',
+                'fecha_nacimiento': alumno.fecha_nacimiento.strftime('%Y-%m-%d'),
+                'sexo': alumno.get_sexo_display(),
+                'curso': alumno.curso.nombre if alumno.curso else '-',
+                'anio_escolar': str(alumno.anio_escolar.anio),  # Ajustado
+            }
+        })
+    except (ValueError, Curso.DoesNotExist, AnioEscolar.DoesNotExist) as e:
+        return JsonResponse({'success': False, 'error': 'Datos inválidos: ' + str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    
+    
+@login_required(login_url='/accounts/login/')
+def reporte_alumnos_por_anio_curso(request):
+    # Esta vista solo renderiza el template
+    return render(request, 'myapp/reporte_alumnos.html')
+
+@login_required(login_url='/accounts/login/')
+def reporte_alumnos_por_anio_curso_data(request):
+    # Esta vista devuelve el JSON con los datos
+    anios_escolares = AnioEscolar.objects.all()
+    data = []
+
+    for anio in anios_escolares:
+        cursos = Curso.objects.filter(anio_escolar=anio)
+        cursos_data = []
+
+        for curso in cursos:
+            alumnos = Alumno.objects.filter(curso=curso, anio_escolar=anio)
+            alumnos_data = []
+
+            for alumno in alumnos:
+                apoderado = alumno.apoderado
+                alumnos_data.append({
+                    'nombre_alumno': alumno.nombre,
+                    'apellidop_alumno': alumno.apellidop,
+                    'apellidom_alumno': alumno.apellidom,
+                    'email_alumno': alumno.email if alumno.email else '-',
+                    'fecha_nacimiento': alumno.fecha_nacimiento.strftime('%Y-%m-%d'),
+                    'sexo': alumno.get_sexo_display(),
+                    'nombre_apoderado': apoderado.nombre,
+                    'apellidop_apoderado': apoderado.apellidop,
+                    'apellidom_apoderado': apoderado.apellidom,
+                    'email_apoderado': apoderado.email if apoderado.email else '-',
+                    'telefono_apoderado': apoderado.telefono if apoderado.telefono else '-',
+                })
+
+            cursos_data.append({
+                'curso_nombre': curso.nombre,
+                'alumnos': alumnos_data,
+            })
+
+        data.append({
+            'anio': str(anio.anio),
+            'cursos': cursos_data,
+        })
+
+    return JsonResponse({'data': data})
+
+
+
+
+
+
+
+zsh: command not found: deactivate
+fernandosalvo@192 myproject % source /Library/WebServer/Documents/horarios/myproject/venv/bin/activate
+
+
+Dejame entender bien. He puesto el anterior account/login.html (que lo adjunto) y sigue funcionando bien.
+Te adjunto el que me propones para la otp donde cambia un poco.
+
+No entendi mucho porque cambio tanto el login. Esperaba que para el que esta funcionando hubieramos añadido la opcion de OTP.
+No se si los cambios que me propones ultimo deba aplicarlos. Ayudame a entender mejor. Te paso ambas versiones de login.
+
+
+ORIGINAL
+account/login.html
+
+{% extends 'myapp/base.html' %}
+   {% load socialaccount %}
+
+   {% block title %}Iniciar Sesión - Sistema de Asignacioness{% endblock %}
+
+   {% block extra_head %}
+   <style>
+       .login-container {
+           min-height: 80vh;
+           display: flex;
+           justify-content: center;
+           align-items: center;
+           padding: 2rem;
+           width: 100%;
+           margin: 0 auto;
+       }
+       .login-card {
+           max-width: 400px;
+           width: 100%;
+           box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+           border: none;
+       }
+       .login-card .card-header {
+           background-color: #007bff;
+           color: white;
+           text-align: center;
+           font-size: 1.5rem;
+           font-weight: bold;
+       }
+       .login-card .card-body {
+           padding: 2rem;
+       }
+       .login-card .btn-primary {
+           background-color: #007bff;
+           border-color: #007bff;
+           width: 100%;
+       }
+       .login-card .btn-primary:hover {
+           background-color: #0056b3;
+           border-color: #0056b3;
+       }
+       .social-login {
+           text-align: center;
+           margin-top: 1rem;
+       }
+       .social-login .btn {
+           background-color: #4285f4;
+           color: white;
+           width: 100%;
+       }
+       .social-login .btn:hover {
+           background-color: #3267d6;
+       }
+       .form-check-label {
+           font-size: 0.9rem;
+       }
+       .forgot-password {
+           font-size: 0.9rem;
+           color: #007bff;
+       }
+       .forgot-password:hover {
+           color: #0056b3;
+       }
+   </style>
+   {% endblock %}
+
+   {% block content %}
+   <div class="login-container">
+       <div class="card login-card">
+           <div class="card-header">
+               Iniciar Sesión
+           </div>
+           <div class="card-body">
+               <!-- Mostrar mensajes de error o éxito -->
+               {% if messages %}
+                   {% for message in messages %}
+                       <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                           {{ message }}
+                           <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                       </div>
+                   {% endfor %}
+               {% endif %}
+
+               <!-- Mensaje de error si el formulario falla -->
+               {% if form.errors %}
+                   <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                       Nombre de usuario o contraseña incorrectos. Por favor, intenta de nuevo.
+                       <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                   </div>
+               {% endif %}
+
+               <form method="post">
+                   {% csrf_token %}
+                   <div class="mb-3">
+                       <label for="id_login" class="form-label">Usuario o Correo Electrónico</label>
+                       {{ form.login }}
+                       {% if form.login.errors %}
+                           <div class="text-danger small">{{ form.login.errors }}</div>
+                       {% endif %}
+                   </div>
+                   <div class="mb-3">
+                       <label for="id_password" class="form-label">Contraseña</label>
+                       {{ form.password }}
+                       {% if form.password.errors %}
+                           <div class="text-danger small">{{ form.password.errors }}</div>
+                       {% endif %}
+                       <a href="{% url 'account_reset_password' %}" class="forgot-password float-end mt-1">¿Olvidaste tu contraseña?</a>
+                   </div>
+                   <div class="mb-3 form-check">
+                       {{ form.remember }}
+                       <label for="id_remember" class="form-check-label">Recordarme</label>
+                       {% if form.remember.errors %}
+                           <div class="text-danger small">{{ form.remember.errors }}</div>
+                       {% endif %}
+                   </div>
+                   <!-- Campo oculto para redirección -->
+                   {% if redirect_field_value %}
+                       <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+                   {% endif %}
+                   <button type="submit" class="btn btn-primary">Iniciar Sesión</button>
+               </form>
+
+               <!-- Enlace para registrarse -->
+               <p class="text-center mt-3">
+                   ¿No tienes una cuenta? <a href="{% url 'signup' %}" class="forgot-password">Regístrate</a>
+               </p>
+
+               <!-- Inicio de sesión con Google -->
+               <div class="social-login">
+                   <p>O inicia sesión con:</p>
+                   <a href="{% provider_login_url 'google' %}" class="btn btn-google">
+                       <i class="bi bi-google me-2"></i> Google
+                   </a>
+               </div>
+           </div>
+       </div>
+   </div>
+   {% endblock %}
+
+ OTP
+ account/login.html 
+
+ {% extends 'myapp/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Iniciar Sesión" %} - Sistema de Asignaciones{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>{% trans "Iniciar Sesión" %}</h2>
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if show_otp_form %}
+        <!-- Formulario para ingresar la OTP -->
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="otp">Código OTP</label>
+                <input type="text" name="otp" id="otp" class="form-control" placeholder="Ingresa el código OTP" required>
+            </div>
+            <button type="submit" class="btn btn-primary">{% trans "Validar OTP" %}</button>
+        </form>
+    {% else %}
+        <!-- Formulario de login estándar -->
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="username">Usuario</label>
+                <input type="text" name="username" id="username" class="form-control" placeholder="Nombre de usuario" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <input type="password" name="password" id="password" class="form-control" placeholder="Contraseña" required>
+            </div>
+            <button type="submit" class="btn btn-primary">{% trans "Iniciar Sesión" %}</button>
+        </form>
+        <p class="mt-3">
+            <a href="{% url 'socialaccount_login' %}">{% trans "Iniciar sesión con Google" %}</a>
+        </p>
+    {% endif %}
+</div>
+{% endblock %}
+
+
+
+
+
+
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQ2MDQwNzM4LCJpYXQiOjE3NDYwMzcxMzgsImp0aSI6Ijg2YWI3NDNlM2Y1YjQxZDc5ZWZiMjAyYzBjMDQzYjM4IiwidXNlcl9pZCI6MX0.VP5iL21UNs2Uf3a_09LOjZjVar71fsXl-wCzFpi0NCA
+
+
+
+
+DEBUG 2025-04-30 20:03:45,136 myapp.middleware Incoming request headers: {'Host': 'localhost', 'User-Agent': 'python-requests/2.32.3', 'Accept-Encoding': 'gzip, deflate, br', 'Accept': '*/*', 'Connection': 'keep-alive', 'Content-Type': 'application/json', 'Content-Length': '44'}
+DEBUG 2025-04-30 20:03:45,139 myapp.middleware Path: /api/token/
+DEBUG 2025-04-30 20:03:45,412 myapp.middleware Incoming request headers: {'Host': 'localhost', 'User-Agent': 'python-requests/2.32.3', 'Accept-Encoding': 'gzip, deflate, br', 'Accept': 'application/json', 'Connection': 'keep-alive'}
+DEBUG 2025-04-30 20:03:45,412 myapp.middleware Path: /api/apoderados/
+WARNING 2025-04-30 20:03:45,412 django.request Unauthorized: /api/apoderados/
+
+(venv) fernandosalvo@MacBook-Air-de-Fernando-3 myproject % /Library/WebServer/Documents/horarios/myproject/venv/bin/python /Library/WebServer/Documents/horarios
+/myproject/myapp/tests.py
+🔍 Enviando solicitud para obtener token...
+URL: http://localhost/api/token/
+Payload: {'username': 'fsalvo', 'password': 'xxxxxxx'}
+Headers: {'Content-Type': 'application/json'}
+🔑 Token de acceso recibido: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQ2MDQ3MDI1LCJpYXQiOjE3NDYwNDM0MjUsImp0aSI6IjVkYzNkMzY4YjFlZjQzMGJiZjYyM2E0NzUxYWJmZGIyIiwidXNlcl9pZCI6MX0.Sx1qQmVQY15CGtJj7EsSRel42iDNVJpUakT_4luAJeQ
+Respuesta completa: {'refresh': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc0NjEyOTgyNSwiaWF0IjoxNzQ2MDQzNDI1LCJqdGkiOiIyOTgyYTM5ZjJhZjQ0NWU5YjY5MTVmZjMxYzQyYzJmYiIsInVzZXJfaWQiOjF9.oWM3btMMGemijh13Tb84p-yxwOe5jVAiNGq1qQRUQ0A', 'access': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQ2MDQ3MDI1LCJpYXQiOjE3NDYwNDM0MjUsImp0aSI6IjVkYzNkMzY4YjFlZjQzMGJiZjYyM2E0NzUxYWJmZGIyIiwidXNlcl9pZCI6MX0.Sx1qQmVQY15CGtJj7EsSRel42iDNVJpUakT_4luAJeQ'}
+
+🔍 Enviando solicitud GET a la API...
+URL: http://localhost/api/apoderados/
+Headers: {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQ2MDQ3MDI1LCJpYXQiOjE3NDYwNDM0MjUsImp0aSI6IjVkYzNkMzY4YjFlZjQzMGJiZjYyM2E0NzUxYWJmZGIyIiwidXNlcl9pZCI6MX0.Sx1qQmVQY15CGtJj7EsSRel42iDNVJpUakT_4luAJeQ', 'Accept': 'application/json'}
+❌ Error en la segunda API. Código: 401
+{"detail":"Las credenciales de autenticación no se proveyeron."}
+(venv) fernandosalvo@MacBook-Air-de-Fernando-3 myproject % 
+
+
+$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+Ahora esta funcionando OK.
+La aplicacion web se ejecuta correctamente y la api esta OK.
+Usando el mismo archivo vhost que te comparti funciono OK. Eso si reinicie el servidor en otra pestaña de terminal.
+fernandosalvo@192 www % brew services restart httpd                                            
+Stopping `httpd`... (might take a while)
+==> Successfully stopped `httpd` (label: homebrew.mxcl.httpd)
+==> Successfully started `httpd` (label: homebrew.mxcl.httpd)
+
+Esta funcionando por scripts, thunder y postman.
+
+
+
+/Library/WebServer/Documents/horarios/myproject/venv/bin/python /Library/WebServer/Documents/horarios/myproject/myapp/tests.py
+(venv) fernandosalvo@192 myproject % /Library/WebServer/Documents/horarios/myproject/venv/bin/python /Library/WebServer/Documents/horarios/myproject/myapp/tests
+.py
+🔍 Enviando solicitud para obtener token...
+URL: http://localhost/api/token/
+Payload: {'username': 'fsalvo', 'password': 'xxxx'}
+Headers: {'Content-Type': 'application/json'}
+🔑 Token de acceso recibido: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQ2NDU2MDE5LCJpYXQiOjE3NDY0NTI0MTksImp0aSI6ImQzNDc3NTgzMjMxMTRjNWU4OGZmZmQ1NGJjNDBkYzA3IiwidXNlcl9pZCI6MX0.-9mgP9pwNquUTY35G8K8EJ2nm8-ROM6WbAr-zGb0b-Q
+Respuesta completa: {'refresh': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc0NjUzODgxOSwiaWF0IjoxNzQ2NDUyNDE5LCJqdGkiOiIyN2Q2MTY3MjYzZTM0OTZkYjk2YTZlZTIyYzY4OGM2YiIsInVzZXJfaWQiOjF9.dp5WR0MO8DoXZRCbCk6IyFcW_EvgolUXfpXltrGmeL8', 'access': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQ2NDU2MDE5LCJpYXQiOjE3NDY0NTI0MTksImp0aSI6ImQzNDc3NTgzMjMxMTRjNWU4OGZmZmQ1NGJjNDBkYzA3IiwidXNlcl9pZCI6MX0.-9mgP9pwNquUTY35G8K8EJ2nm8-ROM6WbAr-zGb0b-Q'}
+
+🔍 Enviando solicitud GET a la API...
+URL: http://localhost/api/apoderados/
+Headers: {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQ2NDU2MDE5LCJpYXQiOjE3NDY0NTI0MTksImp0aSI6ImQzNDc3NTgzMjMxMTRjNWU4OGZmZmQ1NGJjNDBkYzA3IiwidXNlcl9pZCI6MX0.-9mgP9pwNquUTY35G8K8EJ2nm8-ROM6WbAr-zGb0b-Q', 'Accept': 'application/json'}
+✅ Respuesta de la segunda API:
+[{'id': 1, 'nombre': 'Pedro', 'apellidop': 'Gomez', 'apellidom': 'Carreño', 'email': 'pgc@gmail.com', 'telefono': '11111111', 'rut': '19', 'arancel_anual': '180000.00', 'meses_pago': 10, 'cantidad_alumnos': 2, 'modalidad_pago': '2025-04-23 14:49:33.096445+00:00', 'alumnos': [{'id': 3, 'nombre': 'Pedro', 'apellidop': '2025-04-23 16:49:01.437482+00:00', 'apellidom': 'Gomez', 'email': 'pg@gmail.com', 'fecha_nacimiento': '2012-04-01', 'sexo': 'M', 'curso': 7, 'mensualidades': [{'id': 111, 'numero': 1, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-05-16', 'fecha_pago': '2025-04-22', 'metodo_pago': 'efectivo', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 112, 'numero': 2, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-06-15', 'fecha_pago': '2025-04-22', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 113, 'numero': 3, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-07-15', 'fecha_pago': '2025-04-22', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 114, 'numero': 4, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-08-14', 'fecha_pago': '2025-04-22', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 115, 'numero': 5, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-09-13', 'fecha_pago': '2025-04-23', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 116, 'numero': 6, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-10-13', 'fecha_pago': '2025-04-23', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 117, 'numero': 7, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-11-12', 'fecha_pago': '2025-04-24', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 118, 'numero': 8, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-12-12', 'fecha_pago': '2025-04-28', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 119, 'numero': 9, 'monto': '34200.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-01-11', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 120, 'numero': 10, 'monto': '34200.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-02-10', 'fecha_pago': '2025-04-01', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}]}, {'id': 4, 'nombre': 'Ana', 'apellidop': '2025-04-23 16:49:01.437482+00:00', 'apellidom': 'Gomez', 'email': 'ag@gmail.com', 'fecha_nacimiento': '2012-04-01', 'sexo': 'F', 'curso': 3, 'mensualidades': [{'id': 111, 'numero': 1, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-05-16', 'fecha_pago': '2025-04-22', 'metodo_pago': 'efectivo', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 112, 'numero': 2, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-06-15', 'fecha_pago': '2025-04-22', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 113, 'numero': 3, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-07-15', 'fecha_pago': '2025-04-22', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 114, 'numero': 4, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-08-14', 'fecha_pago': '2025-04-22', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 115, 'numero': 5, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-09-13', 'fecha_pago': '2025-04-23', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 116, 'numero': 6, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-10-13', 'fecha_pago': '2025-04-23', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 117, 'numero': 7, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-11-12', 'fecha_pago': '2025-04-24', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 118, 'numero': 8, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-12-12', 'fecha_pago': '2025-04-28', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 119, 'numero': 9, 'monto': '34200.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-01-11', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 120, 'numero': 10, 'monto': '34200.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-02-10', 'fecha_pago': '2025-04-01', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}]}, {'id': 11, 'nombre': 'Almuerzo', 'apellidop': 'Peralta', 'apellidom': 'Carreño', 'email': 'pgm@gmail.com', 'fecha_nacimiento': '2025-04-26', 'sexo': 'M', 'curso': 4, 'mensualidades': [{'id': 111, 'numero': 1, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-05-16', 'fecha_pago': '2025-04-22', 'metodo_pago': 'efectivo', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 112, 'numero': 2, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-06-15', 'fecha_pago': '2025-04-22', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 113, 'numero': 3, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-07-15', 'fecha_pago': '2025-04-22', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 114, 'numero': 4, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-08-14', 'fecha_pago': '2025-04-22', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 115, 'numero': 5, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-09-13', 'fecha_pago': '2025-04-23', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 116, 'numero': 6, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-10-13', 'fecha_pago': '2025-04-23', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 117, 'numero': 7, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-11-12', 'fecha_pago': '2025-04-24', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 118, 'numero': 8, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-12-12', 'fecha_pago': '2025-04-28', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 119, 'numero': 9, 'monto': '34200.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-01-11', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 120, 'numero': 10, 'monto': '34200.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-02-10', 'fecha_pago': '2025-04-01', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}]}, {'id': 12, 'nombre': 'Almuerzo', 'apellidop': 'Gomez', 'apellidom': 'Carreño', 'email': 'pgmn@gmail.com', 'fecha_nacimiento': '2025-04-19', 'sexo': 'F', 'curso': 4, 'mensualidades': [{'id': 111, 'numero': 1, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-05-16', 'fecha_pago': '2025-04-22', 'metodo_pago': 'efectivo', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 112, 'numero': 2, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-06-15', 'fecha_pago': '2025-04-22', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 113, 'numero': 3, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-07-15', 'fecha_pago': '2025-04-22', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 114, 'numero': 4, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-08-14', 'fecha_pago': '2025-04-22', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 115, 'numero': 5, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-09-13', 'fecha_pago': '2025-04-23', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 116, 'numero': 6, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-10-13', 'fecha_pago': '2025-04-23', 'metodo_pago': 'tarjeta', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 117, 'numero': 7, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-11-12', 'fecha_pago': '2025-04-24', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 118, 'numero': 8, 'monto': '34200.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-12-12', 'fecha_pago': '2025-04-28', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 119, 'numero': 9, 'monto': '34200.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-01-11', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}, {'id': 120, 'numero': 10, 'monto': '34200.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-02-10', 'fecha_pago': '2025-04-01', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Dcto 2 hijos (5.00%)'}]}]}, {'id': 2, 'nombre': 'Ximena', 'apellidop': 'Ortiz', 'apellidom': 'Alcayaga', 'email': 'xoa@gmail.com', 'telefono': '43243242', 'rut': '18', 'arancel_anual': '1800000.00', 'meses_pago': 10, 'cantidad_alumnos': 1, 'modalidad_pago': '2025-04-23 14:49:33.096445+00:00', 'alumnos': [{'id': 5, 'nombre': 'Ximena', 'apellidop': '2025-04-23 16:49:01.437482+00:00', 'apellidom': 'Cariz', 'email': 'xc@gmail.com', 'fecha_nacimiento': '2015-04-01', 'sexo': 'F', 'curso': 3, 'mensualidades': [{'id': 131, 'numero': 1, 'monto': '180000.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-05-16', 'fecha_pago': '2025-04-23', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Ninguno'}, {'id': 132, 'numero': 2, 'monto': '180000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-06-15', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 133, 'numero': 3, 'monto': '180000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-07-15', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 134, 'numero': 4, 'monto': '180000.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-08-14', 'fecha_pago': '2025-04-22', 'metodo_pago': 'efectivo', 'descuentos_aplicados': 'Ninguno'}, {'id': 135, 'numero': 5, 'monto': '180000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-09-13', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 136, 'numero': 6, 'monto': '180000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-10-13', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 137, 'numero': 7, 'monto': '180000.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-11-12', 'fecha_pago': '2025-04-24', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Ninguno'}, {'id': 138, 'numero': 8, 'monto': '180000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-12-12', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 139, 'numero': 9, 'monto': '180000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-01-11', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 140, 'numero': 10, 'monto': '180000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-02-10', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}]}]}, {'id': 3, 'nombre': 'Norma', 'apellidop': 'Lagos', 'apellidom': 'Perez', 'email': 'mlp@gmail.com', 'telefono': '97987998', 'rut': '23', 'arancel_anual': '1700000.00', 'meses_pago': 10, 'cantidad_alumnos': 1, 'modalidad_pago': '2025-04-23 14:49:33.096445+00:00', 'alumnos': [{'id': 6, 'nombre': 'Ismael', 'apellidop': '2025-04-23 16:49:01.437482+00:00', 'apellidom': 'Cano Lopez', 'email': 'icn@gmail.com', 'fecha_nacimiento': '2016-04-01', 'sexo': 'M', 'curso': 1, 'mensualidades': [{'id': 151, 'numero': 1, 'monto': '170000.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-05-17', 'fecha_pago': '2025-04-22', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Ninguno'}, {'id': 152, 'numero': 2, 'monto': '170000.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-06-16', 'fecha_pago': '2025-04-22', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Ninguno'}, {'id': 153, 'numero': 3, 'monto': '170000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-07-16', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 154, 'numero': 4, 'monto': '170000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-08-15', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 155, 'numero': 5, 'monto': '170000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-09-14', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 156, 'numero': 6, 'monto': '170000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-10-14', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 157, 'numero': 7, 'monto': '170000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-11-13', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 158, 'numero': 8, 'monto': '170000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-12-13', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 159, 'numero': 9, 'monto': '170000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-01-12', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 160, 'numero': 10, 'monto': '170000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-02-11', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}]}]}, {'id': 4, 'nombre': 'Francisco', 'apellidop': 'Peralta', 'apellidom': 'Guzman', 'email': 'fpg@gmail.com', 'telefono': '345324544', 'rut': '27', 'arancel_anual': '2100000.00', 'meses_pago': 10, 'cantidad_alumnos': 1, 'modalidad_pago': '2025-04-23 14:49:33.096445+00:00', 'alumnos': []}, {'id': 5, 'nombre': 'Tomas', 'apellidop': 'Berrios', 'apellidom': 'Canamo', 'email': 'tbc@gmail.com', 'telefono': '786897988', 'rut': '32', 'arancel_anual': '1500000.00', 'meses_pago': 5, 'cantidad_alumnos': 2, 'modalidad_pago': '2025-04-23 14:49:33.096445+00:00', 'alumnos': [{'id': 17, 'nombre': 'Tomasito', 'apellidop': 'Berrios', 'apellidom': 'Lopez', 'email': 'tbl@gmail.com', 'fecha_nacimiento': '2024-11-13', 'sexo': 'M', 'curso': 4, 'mensualidades': [{'id': 171, 'numero': 1, 'monto': '600000.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-05-30', 'fecha_pago': '2025-04-22', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Ninguno'}, {'id': 172, 'numero': 2, 'monto': '600000.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-06-30', 'fecha_pago': '2025-04-22', 'metodo_pago': 'efectivo', 'descuentos_aplicados': 'Ninguno'}, {'id': 173, 'numero': 3, 'monto': '600000.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-07-30', 'fecha_pago': '2025-04-22', 'metodo_pago': 'efectivo', 'descuentos_aplicados': 'Ninguno'}, {'id': 174, 'numero': 4, 'monto': '600000.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-08-30', 'fecha_pago': '2025-04-22', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Ninguno'}, {'id': 175, 'numero': 5, 'monto': '600000.00', 'estado': 'pagado', 'fecha_vencimiento': '2025-09-30', 'fecha_pago': '2025-04-22', 'metodo_pago': 'transferencia', 'descuentos_aplicados': 'Ninguno'}]}]}, {'id': 6, 'nombre': 'Susana', 'apellidop': 'Lillo', 'apellidom': 'Mardones', 'email': 'slm@gmail.com', 'telefono': '432942334', 'rut': '98', 'arancel_anual': '1800000.00', 'meses_pago': 8, 'cantidad_alumnos': 1, 'modalidad_pago': '2025-04-23 14:49:33.096445+00:00', 'alumnos': []}, {'id': 7, 'nombre': 'Ernesto', 'apellidop': 'Jara', 'apellidom': 'Rios', 'email': 'ejr@gmail.com', 'telefono': '44354345', 'rut': '76', 'arancel_anual': '2000000.00', 'meses_pago': 10, 'cantidad_alumnos': 1, 'modalidad_pago': '2025-04-23 14:49:33.096445+00:00', 'alumnos': [{'id': 10, 'nombre': 'Pedro', 'apellidop': 'Lagos', 'apellidom': 'Guzman', 'email': 'sdf@gmail.com', 'fecha_nacimiento': '2025-04-16', 'sexo': 'F', 'curso': 5, 'mensualidades': [{'id': 184, 'numero': 1, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-01-30', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 185, 'numero': 2, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-02-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 186, 'numero': 3, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-03-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 187, 'numero': 4, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-04-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 188, 'numero': 5, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-05-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 189, 'numero': 6, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-06-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 190, 'numero': 7, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-07-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 191, 'numero': 8, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-08-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 192, 'numero': 9, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-09-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 193, 'numero': 10, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-10-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}]}, {'id': 15, 'nombre': 'Pedro', 'apellidop': 'Gomez', 'apellidom': 'Lopez', 'email': 'dsad@gmail.cl', 'fecha_nacimiento': '2025-04-20', 'sexo': 'M', 'curso': 1, 'mensualidades': [{'id': 184, 'numero': 1, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-01-30', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 185, 'numero': 2, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-02-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 186, 'numero': 3, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-03-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 187, 'numero': 4, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-04-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 188, 'numero': 5, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-05-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 189, 'numero': 6, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-06-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 190, 'numero': 7, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-07-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 191, 'numero': 8, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-08-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 192, 'numero': 9, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-09-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 193, 'numero': 10, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-10-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}]}, {'id': 16, 'nombre': 'Pedro', 'apellidop': 'Gomez', 'apellidom': 'Lopez', 'email': 'sdsa@gmail.com', 'fecha_nacimiento': '2025-04-12', 'sexo': 'M', 'curso': 3, 'mensualidades': [{'id': 184, 'numero': 1, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-01-30', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 185, 'numero': 2, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-02-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 186, 'numero': 3, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-03-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 187, 'numero': 4, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-04-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 188, 'numero': 5, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-05-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 189, 'numero': 6, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-06-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 190, 'numero': 7, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-07-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 191, 'numero': 8, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-08-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 192, 'numero': 9, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-09-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 193, 'numero': 10, 'monto': '200000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-10-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}]}]}, {'id': 8, 'nombre': 'Juan', 'apellidop': 'Cofre', 'apellidom': 'Martinez', 'email': 'jcm@gmail.com', 'telefono': '34234323', 'rut': '54', 'arancel_anual': '1800000.00', 'meses_pago': 10, 'cantidad_alumnos': 2, 'modalidad_pago': 'cheque', 'alumnos': [{'id': 14, 'nombre': 'Pedro', 'apellidop': 'Gomez', 'apellidom': 'Lopez', 'email': 'ds11@gmail.com', 'fecha_nacimiento': '2025-04-19', 'sexo': 'M', 'curso': 4, 'mensualidades': [{'id': 194, 'numero': 1, 'monto': '360000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-05-31', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 195, 'numero': 2, 'monto': '360000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-06-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 196, 'numero': 3, 'monto': '360000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-07-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 197, 'numero': 4, 'monto': '360000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-08-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 198, 'numero': 5, 'monto': '360000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-09-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 199, 'numero': 6, 'monto': '360000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-10-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 200, 'numero': 7, 'monto': '360000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-11-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 201, 'numero': 8, 'monto': '360000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-12-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 202, 'numero': 9, 'monto': '360000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-01-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}, {'id': 203, 'numero': 10, 'monto': '360000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2026-02-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'Ninguno'}]}]}, {'id': 9, 'nombre': 'Alicia', 'apellidop': 'Esparza', 'apellidom': 'Monteros', 'email': 'aem@gmail.com', 'telefono': '24234323', 'rut': '71', 'arancel_anual': '2100000.00', 'meses_pago': 5, 'cantidad_alumnos': 1, 'modalidad_pago': 'cheque', 'alumnos': [{'id': 7, 'nombre': 'Pedro', 'apellidop': 'Pedro', 'apellidom': 'Pedro', 'email': 'ppp@gmail.com', 'fecha_nacimiento': '2017-06-23', 'sexo': 'M', 'curso': 1, 'mensualidades': [{'id': 217, 'numero': 1, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-02-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}, {'id': 218, 'numero': 2, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-03-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}, {'id': 219, 'numero': 3, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-04-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}, {'id': 220, 'numero': 4, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-05-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}, {'id': 221, 'numero': 5, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-06-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}]}, {'id': 8, 'nombre': 'Pedro', 'apellidop': 'Ortiz', 'apellidom': 'Lopez', 'email': 'ds@gmail.com', 'fecha_nacimiento': '2025-04-11', 'sexo': 'M', 'curso': 1, 'mensualidades': [{'id': 217, 'numero': 1, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-02-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}, {'id': 218, 'numero': 2, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-03-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}, {'id': 219, 'numero': 3, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-04-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}, {'id': 220, 'numero': 4, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-05-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}, {'id': 221, 'numero': 5, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-06-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}]}, {'id': 9, 'nombre': 'Pedro', 'apellidop': 'Gomez', 'apellidom': 'Lopez', 'email': 'dsx@gmail.com', 'fecha_nacimiento': '2025-04-12', 'sexo': 'M', 'curso': 1, 'mensualidades': [{'id': 217, 'numero': 1, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-02-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}, {'id': 218, 'numero': 2, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-03-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}, {'id': 219, 'numero': 3, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-04-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}, {'id': 220, 'numero': 4, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-05-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}, {'id': 221, 'numero': 5, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-06-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}]}, {'id': 13, 'nombre': 'Almuerzo', 'apellidop': 'Ortiz', 'apellidom': 'Guzman', 'email': 'dsuy@gmail.com', 'fecha_nacimiento': '2025-04-18', 'sexo': 'M', 'curso': 5, 'mensualidades': [{'id': 217, 'numero': 1, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-02-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}, {'id': 218, 'numero': 2, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-03-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}, {'id': 219, 'numero': 3, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-04-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}, {'id': 220, 'numero': 4, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-05-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}, {'id': 221, 'numero': 5, 'monto': '378000.00', 'estado': 'pendiente', 'fecha_vencimiento': '2025-06-01', 'fecha_pago': None, 'metodo_pago': None, 'descuentos_aplicados': 'prov (10.00%)'}]}]}, {'id': 10, 'nombre': 'Pedro', 'apellidop': 'Retamales', 'apellidom': 'Ubilla', 'email': 'pru@gmail.com', 'telefono': '34324233', 'rut': '986', 'arancel_anual': '1700000.00', 'meses_pago': 8, 'cantidad_alumnos': 1, 'modalidad_pago': 'efectivo', 'alumnos': []}, {'id': 11, 'nombre': 'JAcinta', 'apellidop': 'Morales', 'apellidom': 'Acevedo', 'email': 'jmac@gmail.com', 'telefono': '545353454', 'rut': '433', 'arancel_anual': '2100000.00', 'meses_pago': 12, 'cantidad_alumnos': 1, 'modalidad_pago': 'mensual', 'alumnos': []}]
+
+
+
+
+
+++++++++++++
+
+Sobre el servicio servidor (listener socket)
+¿Este servicio que escucha peticiones ISO 8583 debe correr en el mismo proceso del servidor Django (con threading/asynchronous), o se desea levantar como un proceso separado (subproceso o incluso demonio)?
+Me gustaria que corra en el mismo servidor.
+
+
+¿El servicio debe aceptar múltiples conexiones concurrentes (multithreading o async), o con una conexión a la vez es suficiente?
+Que acepte multiples peticiones. Unas 10 tps.
+
+
+🧾 Sobre la estructura ISO 8583
+¿Qué versión del estándar ISO 8583 quieres simular? Por ejemplo: ISO 8583:1987, 1993, 2003. VISA suele seguir el de 1987 o 1993.
+1993.
+
+¿Tienes algún layout específico en mente para los campos? Por ejemplo:
+
+Bit 2: PAN (número de tarjeta)
+
+Bit 4: Monto
+
+Bit 7: Fecha y hora de la transacción
+
+Bit 14: Fecha de vencimiento
+
+Bit 22 o 48: ¿Dónde te gustaría incluir la cantidad de cuotas?
+En bit 48 para esta prueba.
+
+
+💻 Sobre la interfaz web
+¿Quieres que el botón de encender/apagar el listener esté en una interfaz sencilla tipo dashboard?
+Si tipo dashboard.
+
+¿Se requiere ver una lista histórica de mensajes recibidos y enviados, o solo el último?
+Captura en un log. y la ultimas transacciones en pantalla.
+
+¿Necesitas loguear (guardar) los mensajes en la base de datos para revisión posterior?
+Solo en un log.
+
+📶 Sobre el protocolo de comunicación
+¿El cliente que envía las tramas ISO será otro sistema o simulador? ¿O tú mismo deseas generar las tramas ISO desde otra parte de la aplicación?
+El front leera un textbox que seran convertidos a ISO.
+
+¿Qué puerto quieres que escuche el servicio? ¿Debe ser configurable desde el frontend o hardcodeado?
+USemos 14000
+
+🔐 Sobre seguridad y validación
+¿Se requiere algún control de acceso para la interfaz web o es solo para desarrollo y pruebas?
+Desarrollo y pruebas.
+
+Con tus respuestas, puedo ayudarte a definir la arquitectura general (procesos, diseño de sockets, vista web, modelo de base de datos, parseador ISO, etc.) ¿Te gustaría ir revisando primero la parte del listener y su relación con Django, o la estructura de los mensajes ISO?
+
+Usaremos el servidor de desarrollo de django por ahora, mas adelante lo subiremos a apache.
+La idea es generar desde cero esta aplicacion con pasos detallados. 
+
+
+
+
+-----------------
+
+🔧 ¿Siguientes decisiones a tomar antes de iniciar?
+¿Formato de la trama ingresada por el usuario en el textbox?
+sIngresa texto puro por ejemplo tarjeta, fecha vcto, fecha del dia es el date,monto. Deberia viajar en hexadecimal.
+
+¿Hexadecimal? (más realista)
+
+¿Cadena con delimitador? (más fácil de escribir)
+Headecimal (convertir los datos capturados)
+
+¿Deseas usar una librería ISO 8583 existente o construir una básica a medida (dado que son pocos campos)?
+Usemos alguna libreria existente. Entiendoq ue es standard. Y el el bitmap indicamos cuales ban encendidos.
+
+¿El archivo de log debe estar en formato plano (texto legible) o JSON para luego hacer parsing más fácil?
+Imprimimos el valor del front,el hexadecimal y un parser del iso hacia abajo. Esto para request y response del iso.
+
+

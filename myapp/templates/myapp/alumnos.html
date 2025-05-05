@@ -13,7 +13,7 @@
 {% block content %}
 <div class="container mt-5">
     <h2>Alumnos de {{ apoderado.nombre }} {{ apoderado.apellidop }} {{ apoderado.apellidom }}</h2>
-    <a href="{% url 'apoderados' %}" class="btn btn-secondary mb-3">Volver a Apoderados</a>
+    <a href="{% url 'myapp:apoderados' %}" class="btn btn-secondary mb-3">Volver a Apoderados</a>
     <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#crearAlumnoModal">Crear Alumno</button>
     <table id="alumnosTable" class="table table-striped">
         <thead>

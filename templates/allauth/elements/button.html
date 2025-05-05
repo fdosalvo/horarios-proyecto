@@ -1,0 +1,3 @@
+<button type="{{ attrs.type|default:'submit' }}" class="btn btn-primary">
+    {{ slots.default|join:""|default:"Continuar" }}
+</button>

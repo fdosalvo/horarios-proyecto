@@ -1,0 +1,5 @@
+<form method="{{ attrs.method|default:'post' }}" action=".">
+    {% csrf_token %}
+    {{ slots.actions|join:"" }}
+    {{ slots.default|join:"" }}
+</form>

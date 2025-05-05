@@ -10,7 +10,7 @@
 {% block content %}
 <div class="container mt-5">
     <h2>Reporte de Alumnos por Año Escolar y Curso</h2>
-    <a href="{% url 'apoderados' %}" class="btn btn-secondary mb-3">Volver a Apoderados</a>
+    <a href="{% url 'myapp:apoderados' %}" class="btn btn-secondary mb-3">Volver a Apoderados</a>
     <div id="reporteAlumnos" class="accordion">
         <!-- Los acordeones se generarán dinámicamente con JavaScript -->
     </div>
@@ -20,7 +20,7 @@
 $(document).ready(function() {
     // Cargar los datos al iniciar la página
     $.ajax({
-        url: "{% url 'reporte_alumnos_por_anio_curso_data' %}",
+        url: "{% url 'myapp:reporte_alumnos_por_anio_curso_data' %}",
         dataType: 'json',
         success: function(response) {
             const $accordion = $('#reporteAlumnos');

@@ -1,7 +1,7 @@
 # myapp/views.py
 from django.shortcuts import render, redirect
 from .models import (
-    Profesor, DiaSemana, Asignacion, Curso, Materia, Apoderado, RangoNoDisponible,
+    Profesor, DiaSemana, Asignacion, Curso, User,Materia, Apoderado, RangoNoDisponible,
     ProfesorHorario, Mensualidad, AnioEscolar, Alumno, Descuento
 )
 from datetime import time, datetime, timedelta
@@ -23,9 +23,123 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 
 
+from django.contrib.auth import login, authenticate
+from django.contrib.auth.forms import UserCreationForm
+
+from rest_framework import generics
+
+from .serializers import ApoderadoSerializer
+
+
+
+
+from django.contrib.auth import authenticate, login
+from django.core.mail import send_mail
+from .utils import generate_otp
+from .models import OTP
+from allauth.account.forms import LoginForm
+
+
+
+
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.permissions import IsAuthenticated
+
+
+
+
 
 # Configuración del logger
 logger = logging.getLogger(__name__)
+
+def login_view(request):
+    form = LoginForm(data=request.POST or None, request=request)
+
+    if request.method == 'POST':
+        logger.debug("Método POST recibido en login_view")
+        if 'otp' not in request.POST:
+            logger.debug("Procesando formulario de usuario/contraseña")
+            if form.is_valid():
+                username = form.cleaned_data.get('login')
+                password = form.cleaned_data.get('password')
+                user = authenticate(request, username=username, password=password)
+                logger.debug(f"Autenticación para usuario {username}: {'Éxito' if user else 'Fallo'}")
+
+                if user is not None:
+                    logger.debug(f"Generando OTP para usuario {user.username}")
+                    otp_code = generate_otp()
+                    OTP.objects.create(user=user, code=otp_code)
+
+                    try:
+                        send_mail(
+                            'Tu Código OTP para Iniciar Sesión',
+                            f'Hola {user.username},\n\nTu código OTP es: {otp_code}\n\nEste código es válido por 10 minutos.',
+                            'no-reply@localhost',
+                            [user.email],
+                            fail_silently=False,
+                        )
+                        logger.debug(f"Correo con OTP enviado a {user.email}")
+                    except Exception as e:
+                        logger.error(f"Error al enviar el correo con OTP: {str(e)}")
+                        messages.error(request, 'Error al enviar el OTP. Por favor, intenta de nuevo.')
+                        return render(request, 'account/login.html', {
+                            'form': form,
+                            'redirect_field_name': request.POST.get('next', ''),
+                            'redirect_field_value': request.POST.get('next', '/myapp/ingresos/')
+                        })
+
+                    request.session['pending_user_id'] = user.id
+                    logger.debug("Mostrando formulario de OTP")
+                    return render(request, 'account/login.html', {
+                        'form': form,
+                        'show_otp_form': True,
+                        'redirect_field_name': request.POST.get('next', ''),
+                        'redirect_field_value': request.POST.get('next', '/myapp/ingresos/')
+                    })
+                else:
+                    messages.error(request, 'Usuario o contraseña incorrectos.')
+                    logger.debug("Credenciales incorrectas")
+            else:
+                logger.debug("Formulario no válido")
+        else:
+            logger.debug("Procesando formulario de OTP")
+            otp_code = request.POST.get('otp')
+            user_id = request.session.get('pending_user_id')
+            if not user_id:
+                messages.error(request, 'Sesión expirada. Por favor, inicia sesión de nuevo.')
+                logger.debug("Sesión expirada")
+                return redirect('account_login')
+
+            user = User.objects.get(id=user_id)
+            otp = OTP.objects.filter(user=user, code=otp_code, is_used=False).first()
+            if otp:
+                otp.is_used = True
+                otp.save()
+                # Especificamos el backend al iniciar sesión
+                logger.debug(f"Usuario antes de login: {user}, backend: django.contrib.auth.backends.ModelBackend")
+                login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+                logger.debug("Usuario autenticado con éxito")
+                login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+                del request.session['pending_user_id']
+                logger.debug("OTP válido, usuario autenticado")
+                return redirect('myapp:ingresos')
+            else:
+                messages.error(request, 'Código OTP incorrecto o ya usado.')
+                logger.debug("OTP inválido")
+                return render(request, 'account/login.html', {
+                    'form': form,
+                    'show_otp_form': True,
+                    'redirect_field_name': request.POST.get('next', ''),
+                    'redirect_field_value': request.POST.get('next', '/myapp/ingresos/')
+                })
+
+    logger.debug("Mostrando formulario de login inicial")
+    return render(request, 'account/login.html', {
+        'form': form,
+        'redirect_field_name': request.POST.get('next', ''),
+        'redirect_field_value': request.POST.get('next', '/myapp/ingresos/')
+    })    
+
 
 # Formulario para Asignacion
 class AsignacionForm(forms.Form):
@@ -104,7 +218,7 @@ def get_common_context():
     }
 
 # Vistas
-@login_required(login_url='/accounts/login/')
+@login_required(login_url='account_login')
 def index(request):
     context = get_common_context()
     return render(request, 'myapp/index.html', context)
@@ -335,6 +449,7 @@ def generate_curso_pdf(request, curso_id):
     p.save()
     return response
 
+
 @login_required(login_url='/accounts/login/')
 def cargar_asignacion(request):
     total_start_time = time(8, 0)
@@ -356,6 +471,9 @@ def cargar_asignacion(request):
     available_slots = []
     error_message = None
     remaining_horas = None
+
+    materias = Materia.objects.all()
+    dias = DiaSemana.objects.all()
 
     if dia_id:
         try:
@@ -466,19 +584,24 @@ def cargar_asignacion(request):
                 end_time_str = slots[-1]
                 start_hour, start_minute = map(int, start_time_str.split(':'))
                 end_hour, end_minute = map(int, end_time_str.split(':'))
-                end_time_adjusted = (datetime.combine(datetime.today(), time(end_hour, end_minute)) + timedelta(minutes=15)).time()
-                
+                # No sumar 15 minutos adicionales; usar directamente el último slot
                 Asignacion.objects.create(
                     profesor=form.cleaned_data['profesor'],
                     materia=form.cleaned_data['materia'],
                     curso=form.cleaned_data['curso'],
                     dia=form.cleaned_data['dia'],
                     hora_inicio=time(start_hour, start_minute),
-                    hora_fin=end_time_adjusted,
+                    hora_fin=time(end_hour, end_minute),  # Usar directamente el valor de end_time_str
                     anio_escolar=form.cleaned_data['curso'].anio_escolar
                 )
                 messages.success(request, "Asignación creada con éxito.")
-                return redirect('index')
+                # Reiniciar variables para una nueva asignación
+                blocked_times = []
+                assigned_slots = []
+                available_slots = []
+                remaining_horas = None
+                error_message = None
+                form = AsignacionForm(available_days=available_days)
             else:
                 error_message = "No se seleccionaron slots."
         else:
@@ -492,6 +615,8 @@ def cargar_asignacion(request):
         'available_slots': available_slots,
         'error_message': error_message,
         'remaining_horas': remaining_horas,
+        'materias': materias,
+        'dias': dias,
     })
     return render(request, 'myapp/cargar_asignacion.html', context)
 
@@ -694,29 +819,101 @@ def marcar_mensualidad_pagada(request):
 
 @login_required(login_url='/accounts/login/')
 def reportes(request):
-    mensualidades = Mensualidad.objects.all()
+    # Obtener el filtro del formulario (GET)
+    filtro = request.GET.get('filtro', 'todos')  # Por defecto, "todos"
     today = timezone.now().date()
+    current_month = today.replace(day=1)  # Primer día del mes actual
 
-    ingresos_por_mes = mensualidades.filter(estado='pagado').annotate(
-        mes=TruncMonth('fecha_pago')
-    ).values('mes').annotate(
-        total=Sum('monto')
-    ).order_by('mes')
+    # Filtrar mensualidades según el filtro
+    mensualidades = Mensualidad.objects.all()
+    if filtro == 'hasta_mes_actual':
+        mensualidades = mensualidades.filter(fecha_vencimiento__lte=current_month)
 
-    morosidad_por_mes = mensualidades.filter(
-        estado='pendiente',
-        fecha_vencimiento__lt=today
-    ).annotate(
-        mes=TruncMonth('fecha_vencimiento')
-    ).values('mes').annotate(
-        total=Sum('monto')
-    ).order_by('mes')
+    # Datos para el gráfico de barras (Pendientes y Atrasados por mes)
+    # Ingresos pagados por mes
+    ingresos_por_mes = (
+        mensualidades.filter(estado='pagado')
+        .annotate(mes=TruncMonth('fecha_pago'))
+        .values('mes')
+        .annotate(total=Sum('monto'))
+        .order_by('mes')
+    )
 
+    # Morosidad (pendientes y atrasados) por mes
+    morosidad_por_mes = (
+        mensualidades.filter(estado='pendiente', fecha_vencimiento__lt=today)
+        .annotate(mes=TruncMonth('fecha_vencimiento'))
+        .values('mes')
+        .annotate(total=Sum('monto'))
+        .order_by('mes')
+    )
+
+    # Preparar datos para el gráfico de barras
+    # Obtener todos los meses presentes en ambos conjuntos
+    meses = set()
+    for ingreso in ingresos_por_mes:
+        meses.add(ingreso['mes'])
+    for morosidad in morosidad_por_mes:
+        meses.add(morosidad['mes'])
+    meses = sorted(meses)
+
+    # Asegurarse de que bar_labels, bar_pendiente y bar_atrasado siempre sean listas
+    bar_labels = [mes.strftime('%Y-%m') for mes in meses] if meses else []
+    bar_pendiente = []
+    bar_atrasado = []
+
+    # Calcular montos pendientes y atrasados por mes
+    for mes in meses:
+        # Pendiente total (sin incluir atrasados para evitar duplicación)
+        pendiente = (
+            mensualidades.filter(estado='pendiente', fecha_vencimiento__month=mes.month, fecha_vencimiento__year=mes.year)
+            .exclude(fecha_vencimiento__lt=today)  # Excluir los atrasados
+            .aggregate(total=Sum('monto'))['total'] or Decimal('0')
+        )
+        bar_pendiente.append(float(pendiente))
+
+        # Atrasado
+        atrasado = next(
+            (m['total'] for m in morosidad_por_mes if m['mes'] == mes),
+            Decimal('0')
+        )
+        bar_atrasado.append(float(atrasado))
+
+    # Datos para el gráfico de torta (Distribución de estados)
+    total_pendiente = mensualidades.filter(estado='pendiente').aggregate(total=Sum('monto'))['total'] or Decimal('0')
+    total_pagado = mensualidades.filter(estado='pagado').aggregate(total=Sum('monto'))['total'] or Decimal('0')
+    total_atrasado = mensualidades.filter(estado='pendiente', fecha_vencimiento__lt=today).aggregate(total=Sum('monto'))['total'] or Decimal('0')
+
+    pie_data = {
+        'labels': ['Pendiente', 'Atrasado', 'Pagado'],
+        'values': [float(total_pendiente - total_atrasado), float(total_atrasado), float(total_pagado)],
+    }
+
+    # Datos para el gráfico de línea (Proyección de ingresos futuros)
+    # Proyectar ingresos para los próximos 6 meses
+    line_labels = []
+    line_montos = []
+    current_date = today
+    promedio_mensual = float(total_pagado) / max(len(ingresos_por_mes), 1) if total_pagado else 0
+
+    for i in range(6):
+        future_month = current_date + timedelta(days=30 * i)
+        line_labels.append(future_month.strftime('%Y-%m'))
+        # Proyección simple: usar el promedio de ingresos mensuales
+        line_montos.append(promedio_mensual)
+
+    # Renderizar la plantilla con los datos
     return render(request, 'myapp/reportes.html', {
-        'ingresos_por_mes': ingresos_por_mes,
-        'morosidad_por_mes': morosidad_por_mes,
+        'filtro': filtro,
+        'bar_labels': bar_labels,
+        'bar_pendiente': bar_pendiente if bar_pendiente else [],  # Asegurarse de que no sea None
+        'bar_atrasado': bar_atrasado if bar_atrasado else [],    # Asegurarse de que no sea None
+        'pie_data': pie_data,
+        'line_labels': line_labels,
+        'line_montos': line_montos,
     })
-
+    
+    
 @login_required(login_url='/accounts/login/')
 def apoderados(request):
     anios_escolares = AnioEscolar.objects.all()
@@ -998,3 +1195,39 @@ def reporte_alumnos_por_anio_curso_data(request):
         })
 
     return JsonResponse({'data': data})
+
+def signup(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            username = form.cleaned_data.get('username')
+            raw_password = form.cleaned_data.get('password1')
+            user = authenticate(username=username, password=raw_password)
+            login(request, user)
+            messages.success(request, f'¡Cuenta creada con éxito para {username}!')
+            return redirect('cargar_asignacion')  # Redirige a la página deseada después del registro
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
+    else:
+        form = UserCreationForm()
+    return render(request, 'registration/signup.html', {'form': form})
+
+
+
+
+
+logger = logging.getLogger(__name__)
+
+class ApoderadoListAPIView(generics.ListAPIView):
+    queryset = Apoderado.objects.all()
+    serializer_class = ApoderadoSerializer
+    authentication_classes = [JWTAuthentication]  # Forzar autenticación JWT
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        logger.debug(f"Request headers: {request.headers}")
+        logger.debug(f"Authenticated user: {request.user}")
+        logger.debug(f"Authorization header: {request.headers.get('Authorization', 'No Authorization header')}")
+        return super().get(request, *args, **kwargs)
+    

@@ -1,7 +1,11 @@
-# myproject/urls.py
 from django.urls import path, include
 from myapp import views
 from django.views.generic.base import RedirectView
+from django.views.generic.base import RedirectView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+# Definimos el namespace 'myapp' para las URLs
+app_name = 'myapp'  # Agrega esta línea para definir el namespace
 
 urlpatterns = [
     path('', views.index, name='index'),
@@ -22,9 +26,14 @@ urlpatterns = [
     path('myapp/apoderados/<int:apoderado_id>/alumnos_data/', views.alumnos_data, name='alumnos_data'),
     path('myapp/apoderados/<int:apoderado_id>/alumnos_create/', views.alumnos_create, name='alumnos_create'),
     path('myapp/get_cursos_por_anio/', views.get_cursos_por_anio, name='get_cursos_por_anio'),
+    path('accounts/login/', views.login_view, name='account_login'),
     path('accounts/', include('allauth.urls')),
     path('reporte_alumnos_por_anio_curso/', views.reporte_alumnos_por_anio_curso, name='reporte_alumnos_por_anio_curso'),
     path('reporte_alumnos_por_anio_curso_data/', views.reporte_alumnos_por_anio_curso_data, name='reporte_alumnos_por_anio_curso_data'),
+    path('signup/', views.signup, name='signup'),
+    path('login/', views.login_view, name='login'),
+    path('api/apoderados/', views.ApoderadoListAPIView.as_view(), name='api_apoderados'),
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
-
 
