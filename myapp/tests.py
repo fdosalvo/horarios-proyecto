@@ -4,7 +4,7 @@ import requests
 auth_url = "http://localhost/api/token/"
 auth_payload = {
     "username": "fsalvo",
-    "password": "fsalvo"
+    "password": "xxxx"
 }
 auth_headers = {
     "Content-Type": "application/json"
