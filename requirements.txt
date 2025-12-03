@@ -6,7 +6,7 @@ chardet==5.2.0
 charset-normalizer==3.4.1
 cryptography==44.0.2
 cssselect2==0.8.0
-Django==5.2
+Django==5.2.9
 django-allauth==65.7.0
 fonttools==4.57.0
 idna==3.10
