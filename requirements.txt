@@ -7,7 +7,7 @@ charset-normalizer==3.4.1
 cryptography==44.0.2
 cssselect2==0.8.0
 Django==5.2
-django-allauth==65.7.0
+django-allauth==65.13.0
 fonttools==4.57.0
 idna==3.10
 mod_wsgi==5.0.2
