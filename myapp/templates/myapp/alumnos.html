@@ -124,7 +124,7 @@ $(document).ready(function() {
     // Inicializar DataTable
     $('#alumnosTable').DataTable({
         "ajax": {
-            "url": "{% url 'alumnos_data' apoderado.id %}",
+            "url": "{% url 'myapp:alumnos_data' apoderado.id %}",
             "dataSrc": "data"
         },
         "columns": [
@@ -147,7 +147,7 @@ $(document).ready(function() {
         var anioEscolarId = $(this).val();
         if (anioEscolarId) {
             $.ajax({
-                url: "{% url 'get_cursos_por_anio' %}",
+                url: "{% url 'myapp:get_cursos_por_anio' %}",
                 data: {
                     'anio_escolar_id': anioEscolarId
                 },
@@ -181,7 +181,7 @@ $(document).ready(function() {
         return;
     }
     $.ajax({
-        url: "{% url 'alumnos_create' apoderado.id %}",
+        url: "{% url 'myapp:alumnos_create' apoderado.id %}",
         type: "POST",
         data: $(this).serialize(),
         dataType: 'json',

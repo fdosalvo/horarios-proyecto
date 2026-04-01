@@ -1,10 +1,42 @@
 import requests
+import getpass
+import json
+import tkinter as tk
+from tkinter import ttk, messagebox
 
-# === Paso 1: Obtener el token de acceso desde la primera API ===
+def mostrar_json_en_grilla(json_data):
+    # Si es un diccionario, lo convertimos en una lista de un solo elemento
+    if isinstance(json_data, dict):
+        json_data = [json_data]
+    if not json_data:
+        messagebox.showinfo("Sin datos", "No hay datos para mostrar.")
+        return
+
+    # Crear ventana principal
+    root = tk.Tk()
+    root.title("Datos de la API")
+
+    # Crear Treeview
+    columns = list(json_data[0].keys())
+    tree = ttk.Treeview(root, columns=columns, show="headings")
+    for col in columns:
+        tree.heading(col, text=col)
+        tree.column(col, width=120)
+    for item in json_data:
+        values = [item.get(col, "") for col in columns]
+        tree.insert("", tk.END, values=values)
+    tree.pack(expand=True, fill="both")
+
+    root.mainloop()
+
+# === Paso 1: Solicitar password por pantalla ===
+username = "fsalvo"
+password = getpass.getpass(f"Ingrese la contraseña para el usuario '{username}': ")
+
 auth_url = "http://localhost/api/token/"
 auth_payload = {
-    "username": "fsalvo",
-    "password": "xxxx"
+    "username": username,
+    "password": password
 }
 auth_headers = {
     "Content-Type": "application/json"
@@ -12,18 +44,17 @@ auth_headers = {
 
 print("🔍 Enviando solicitud para obtener token...")
 print(f"URL: {auth_url}")
-print(f"Payload: {auth_payload}")
+print(f"Payload: {{'username': '{username}', 'password': '***'}}")
 print(f"Headers: {auth_headers}")
 
 # Hacer solicitud para obtener token
 auth_response = requests.post(auth_url, json=auth_payload, headers=auth_headers)
 
 if auth_response.status_code == 200:
-    # Extraer el token del JSON de respuesta
     auth_data = auth_response.json()
     access_token = auth_data.get("access")
     print(f"🔑 Token de acceso recibido: {access_token}")
-    print(f"Respuesta completa: {auth_data}")
+    print(f"Respuesta completa: {json.dumps(auth_data, indent=2, ensure_ascii=False)}")
 
     # === Paso 2: Usar el token en otra API ===
     api_url = "http://localhost/api/apoderados/"
@@ -40,7 +71,9 @@ if auth_response.status_code == 200:
 
     if api_response.status_code == 200:
         print("✅ Respuesta de la segunda API:")
-        print(api_response.json())
+        data = api_response.json()
+        # Mostrar en grilla Tkinter
+        mostrar_json_en_grilla(data)
     else:
         print(f"❌ Error en la segunda API. Código: {api_response.status_code}")
         print(api_response.text)
